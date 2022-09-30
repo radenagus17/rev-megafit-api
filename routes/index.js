@@ -4,6 +4,7 @@ const promoRoute = require("./promo");
 const packageMembershipRoute = require("./packageMembership");
 const subCategoryMembershipRoute = require("./subCategoryMembership");
 const categoryMembershipRoute = require("./categoryMembership");
+const taskRoute = require("./task");
 const errorHandler = require("../middlewares/errorHandler");
 
 router.get("/", (req, res) => {
@@ -15,6 +16,8 @@ router.use("/promo", promoRoute);
 router.use("/package-memberships", packageMembershipRoute);
 router.use("/sub-category-memberships", subCategoryMembershipRoute);
 router.use("/category-memberships", categoryMembershipRoute);
+router.use("/task", taskRoute);
+
 router.use(errorHandler);
 
 module.exports = router;
