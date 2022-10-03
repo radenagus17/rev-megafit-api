@@ -10,7 +10,7 @@ module.exports = (sequelize, DataTypes) => {
     static associate(models) {
       // define association here
       tblRevenue.belongsTo(models.tblMember, { foreignKey: "memberId" });
-      // tblRevenue.hasMany(models.tblHistoryPTs, {foreignKey: 'revenueId'});
+      tblRevenue.hasMany(models.tblHistoryPT, { foreignKey: "revenueId" });
     }
   }
   tblRevenue.init(

@@ -13,7 +13,7 @@ module.exports = (sequelize, DataTypes) => {
       // tblPackageMemberships.hasMany(models.tblMemberships, { foreignKey: 'packageMembershipId' });
       tblPackageMemberships.hasMany(models.tblMember, { foreignKey: "packageMembershipId", as: "packageMembership" });
       tblPackageMemberships.hasMany(models.tblMember, { foreignKey: "packagePTId", as: "packagePT" });
-      // tblPackageMemberships.hasMany(models.tblOrderLists, { foreignKey: 'packageMembershipId' });
+      tblPackageMemberships.hasMany(models.tblOrderList, { foreignKey: "packageMembershipId" });
     }
   }
   tblPackageMemberships.init(

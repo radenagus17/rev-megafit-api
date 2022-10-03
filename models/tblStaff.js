@@ -14,9 +14,9 @@ module.exports = (sequelize, DataTypes) => {
       tblStaff.belongsTo(models.tblUser, { foreignKey: "evaluatorId2", as: "evaluator2" });
       // tblStaffs.hasMany(models.tblTaskPT, { foreignKey: 'ptId' });
       tblStaff.hasMany(models.tblMember, { foreignKey: "ptId" });
-      // tblStaffs.hasMany(models.tblTransactions, { foreignKey: 'staffId' });
-      // tblStaffs.hasMany(models.tblTransactions, { foreignKey: 'salesId', as: 'sales' });
-      // tblStaffs.hasMany(models.tblTransactions, { foreignKey: 'cashierId', as: 'cashier' });
+      tblStaff.hasMany(models.tblTransaction, { foreignKey: "staffId" });
+      tblStaff.hasMany(models.tblTransaction, { foreignKey: "salesId", as: "sales" });
+      tblStaff.hasMany(models.tblTransaction, { foreignKey: "cashierId", as: "cashier" });
     }
   }
   tblStaff.init(

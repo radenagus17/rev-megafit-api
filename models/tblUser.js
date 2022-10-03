@@ -23,7 +23,7 @@ module.exports = (sequelize, DataTypes) => {
       tblUser.hasOne(models.tblMember, { foreignKey: "userId" });
 
       // tblUsers.hasMany(models.tblAttendances, { foreignKey: "userId" });
-      // tblUsers.hasMany(models.tblClassPts, { foreignKey: "ptId" });
+      tblUser.hasMany(models.tblClassPt, { foreignKey: "ptId" });
       // tblUsers.hasMany(models.tblCardPayments, { foreignKey: "userId" });
       // tblUsers.hasMany(models.tblPrivileges, { foreignKey: "userId" });
       tblUser.hasMany(models.tblCheckinCheckouts, {
@@ -40,7 +40,7 @@ module.exports = (sequelize, DataTypes) => {
       });
       // tblUsers.hasMany(models.tblTransactions, { foreignKey: "memberId" });
       // tblUsers.hasMany(models.tblTransactions, { foreignKey: "staffId" });
-      // tblUsers.hasMany(models.tblHistoryPTs, { foreignKey: "userId" });
+      tblUser.hasMany(models.tblHistoryPT, { foreignKey: "userId" });
       tblUser.hasMany(models.tblLog, { foreignKey: "userId" });
       // tblUsers.hasMany(models.tblClasses, { foreignKey: "ptId" });
       // tblUsers.hasMany(models.tblHistoryClasses, { foreignKey: "userId" });

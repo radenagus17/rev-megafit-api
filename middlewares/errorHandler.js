@@ -25,6 +25,14 @@ function errorHandler(err, req, res, next) {
       status = 400;
       errMessage = "Data Not Found";
       break;
+    case "scheduleOn":
+      status = 403;
+      errMessage = "Schedule has on";
+      break;
+    case "sessionDone":
+      status = 403;
+      errMessage = "PT Session telah habis";
+      break;
     case "emailFound":
       status = 409;
       errMessage = "Email is already used by other users";

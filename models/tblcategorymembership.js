@@ -10,7 +10,7 @@ module.exports = (sequelize, DataTypes) => {
     static associate(models) {
       // define association here
       tblCategoryMembership.hasMany(models.tblSubCategoryMembership, { foreignKey: "categoryMembershipId" });
-      // tblCategoryMembership.hasMany(models.tblOrderLists, { foreignKey: 'categoryMembershipId' });
+      tblCategoryMembership.hasMany(models.tblOrderList, { foreignKey: "categoryMembershipId" });
       tblCategoryMembership.belongsTo(models.tblSubCategoryMembership, { foreignKey: "mainPackageId" });
     }
   }
