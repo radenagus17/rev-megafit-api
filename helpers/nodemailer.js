@@ -40,7 +40,7 @@ async function sendErrorReport(req, user, body, error) {
   urlobj.protocol = req.protocol;
   urlobj.host = req.get("host");
 
-  mailOptions.to = "info@megafit.co.id";
+  mailOptions.to = "error@megafit.co.id";
   mailOptions.subject = `Megafit website error report.`;
   mailOptions.html = `
     <img src="http://209.97.175.174:3000/asset/img/pola-megafit_black.png" height="30" width="150" alt="logo-megafit" />
