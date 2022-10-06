@@ -29,6 +29,10 @@ function errorHandler(err, req, res, next) {
       status = 403;
       errMessage = "Schedule has on";
       break;
+    case "nullPG":
+      status = 403;
+      errMessage = "Tidak Memiliki Sesi Private Gym";
+      break;
     case "sessionDone":
       status = 403;
       errMessage = "PT Session telah habis";
@@ -36,6 +40,10 @@ function errorHandler(err, req, res, next) {
     case "emailFound":
       status = 409;
       errMessage = "Email is already used by other users";
+      break;
+    case "fullBook":
+      status = 409;
+      errMessage = "Locker key sudah terpakai";
       break;
     case "phoneFound":
       status = 409;

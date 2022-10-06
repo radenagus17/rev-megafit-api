@@ -7,6 +7,7 @@ const categoryMembershipRoute = require("./categoryMembership");
 const taskRoute = require("./task");
 const classPtRoute = require("./classPt");
 const historyPtRoute = require("./historyPt");
+const checkinRoute = require("./checkin");
 const errorHandler = require("../middlewares/errorHandler");
 
 router.get("/", (req, res) => {
@@ -21,6 +22,7 @@ router.use("/category-memberships", categoryMembershipRoute);
 router.use("/task", taskRoute);
 router.use("/class-pts", classPtRoute);
 router.use("/history-pts", historyPtRoute);
+router.use("/checkin-checkout", checkinRoute);
 
 router.use(errorHandler);
 
