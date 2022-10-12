@@ -11,6 +11,9 @@ const portServer = process.env.PORT || 3000;
 app.use(cors());
 app.use(express.urlencoded({ extended: false }));
 app.use(express.json());
+app.use("/qr", express.static("qr"));
+app.use("/uploads", express.static("uploads"));
+app.use("/asset/img", express.static("assets"));
 
 app.use("/", routes);
 

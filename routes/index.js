@@ -8,6 +8,7 @@ const taskRoute = require("./task");
 const classPtRoute = require("./classPt");
 const historyPtRoute = require("./historyPt");
 const checkinRoute = require("./checkin");
+const revenueRoute = require("./revenue");
 const errorHandler = require("../middlewares/errorHandler");
 
 router.get("/", (req, res) => {
@@ -23,6 +24,7 @@ router.use("/task", taskRoute);
 router.use("/class-pts", classPtRoute);
 router.use("/history-pts", historyPtRoute);
 router.use("/checkin-checkout", checkinRoute);
+router.use("/revenue", revenueRoute);
 
 router.use(errorHandler);
 
