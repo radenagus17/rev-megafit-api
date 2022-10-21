@@ -2,6 +2,7 @@ const { tblCheckinCheckouts, tblUser, tblStaff, tblMember, tblCancelReservation,
 const Op = require("sequelize").Op;
 const { log } = require("../helpers/log");
 const { createDateAsUTC } = require("../helpers/convertDate");
+const { cancelReservation } = require("../helpers/schedule");
 const moment = require("moment");
 let jamPrivateGym = 0;
 let batasJamPrivateGym = 0;
