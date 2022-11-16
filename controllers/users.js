@@ -81,8 +81,8 @@ class usersController {
       let newUser = {
         username,
         password: hashPass(password),
-        fullname,
-        nickname,
+        fullname: capitalize(fullname),
+        nickname: capitalize(nickname),
         noKtp,
         avatar: req.file ? req.file.path : `/uploads/icon_user.png`,
         dateOfBirth,
@@ -236,7 +236,7 @@ class usersController {
       let newUser = {
         username: email,
         password: hashPass(phone),
-        fullname: fullname,
+        fullname: capitalize(fullname),
         nickname: fullname.split(" ")[0],
         email: email,
         phone: phone,
@@ -288,7 +288,7 @@ class usersController {
       let responseData = {
         userId: createUser.null,
         roleId: 2,
-        fullname: fullname,
+        fullname: capitalize(fullname),
         nickname: fullname.split(" ")[0],
         hasConfirmTermAndCondition: false,
         hasSeenSdkFreeze: true,
@@ -1197,8 +1197,8 @@ class usersController {
               let createMember;
 
               let newUser = {
-                fullname: data.member[i].namaLengkap,
-                nickname: data.member[i].namaPanggilan,
+                fullname: capitalize(data.member[i].namaLengkap),
+                nickname: capitalize(data.member[i].namaPanggilan),
                 noKtp: data.member[i].noKtp ? String(data.member[i].noKtp) : "000" + data.member[i].username,
                 avatar: "/uploads/icon_user.png",
                 email: data.member[i].email || data.member[i].username + "@email.com",
@@ -1302,8 +1302,8 @@ class usersController {
               let createStaff;
 
               let newUser = {
-                fullname: element.namaLengkap,
-                nickname: element.namaPanggilan,
+                fullname: capitalize(element.namaLengkap),
+                nickname: capitalize(element.namaPanggilan),
                 noKtp: String(element.noKtp),
                 avatar: element.avatar || "/uploads/icon_user.png",
                 dateOfBirth: new Date(element.tanggalLahir),
@@ -1905,6 +1905,14 @@ function cekSisaHari(args, args2) {
   let b = moment(args, "YYYY-MM-DD");
 
   return b.diff(a, "days"); //TODO ex: 28-11-2022 - now Date()
+}
+
+function capitalize(name) {
+  return (name = name
+    .toLowerCase()
+    .split(" ")
+    .map((s) => s.charAt(0).toUpperCase() + s.substring(1))
+    .join(" "));
 }
 
 module.exports = usersController;

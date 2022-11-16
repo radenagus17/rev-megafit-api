@@ -1,4 +1,4 @@
-const { tblUser, tblMember, tblPackageMemberships, tblSubCategoryMembership, tblTransaction, tblOrderList, tblStaff, tblRevenue } = require("../models");
+const { tblUser, tblMember, tblPackageMemberships, tblSubCategoryMembership, tblTransaction, tblOrderList, tblStaff, tblRevenue, tblTempRevenue } = require("../models");
 const Op = require("sequelize").Op;
 const { createDateAsUTC } = require("../helpers/convertDate");
 const { rememberExtendPackage } = require("../helpers/schedule");
