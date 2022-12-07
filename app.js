@@ -4,6 +4,7 @@ if (process.env.NODE_ENV !== "production") {
 
 const express = require("express");
 const cors = require("cors");
+const morgan = require("morgan");
 const routes = require("./routes");
 const { rescheduleCRON } = require("./helpers/schedule");
 const app = express();
@@ -16,6 +17,7 @@ app.use("/qr", express.static("qr"));
 app.use("/uploads", express.static("uploads"));
 app.use("/asset/img", express.static("assets"));
 
+app.use(morgan("dev"));
 app.use("/", routes);
 
 app.listen(portServer, () => {
