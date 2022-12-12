@@ -1,4 +1,4 @@
-const { sendErrorReport } = require("../helpers/nodemailer");
+// const { sendErrorReport } = require("../helpers/nodemailer");
 
 function errorHandler(err, req, res, next) {
   let status = null;
@@ -54,7 +54,7 @@ function errorHandler(err, req, res, next) {
       errMessage = "Internal Server Error";
       break;
   }
-  sendErrorReport(req, req.user.fullname, JSON.stringify(req.body), err);
+  sendErrorReport(req, req.body.fullname || null, JSON.stringify(req.body), err);
   res.status(status).json({
     success: false,
     error: errMessage,

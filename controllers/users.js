@@ -708,6 +708,7 @@ class usersController {
           ],
         });
       }
+      if (data) res.status(200).json({ message: "Success", totalRecord: data.length, data });
     } catch (error) {
       next(error);
     }
