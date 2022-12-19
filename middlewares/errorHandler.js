@@ -1,4 +1,4 @@
-// const { sendErrorReport } = require("../helpers/nodemailer");
+const { sendErrorReport } = require("../helpers/nodemailer");
 
 function errorHandler(err, req, res, next) {
   let status = null;

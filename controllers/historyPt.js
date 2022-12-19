@@ -87,7 +87,7 @@ class historyPT {
         await data.sort(compareYear);
       } else if (req.query.checkin === "true") {
         data = await tblHistoryPT.sequelize.query(
-          "SELECT tblHistoryPT.userId, tblUser.fullname AS `PT`, tblClassPt.time,tblClassPt.date,tblClassPt.month,tblClassPt.week,tblClassPt.year,tblClassPt.isOnline FROM `tblHistoryPT` INNER JOIN `tblClassPt` ON `tblClassPt`.`classPtId` = `tblHistoryPT`.`classPtId` INNER JOIN `tblUser` ON `tblClassPt`.`ptId` = `tblUser`.`userId` WHERE `tblClassPt`.`date` = $1 AND `tblClassPt`.`month` = $2 AND `tblClassPt`.`year` = $3",
+          "SELECT tblHistoryPTs.userId, tblUsers.fullname AS `PT`, tblClassPts.time,tblClassPts.date,tblClassPts.month,tblClassPts.week,tblClassPts.year,tblClassPts.isOnline FROM `tblHistoryPTs` INNER JOIN `tblClassPts` ON `tblClassPts`.`classPtId` = `tblHistoryPTs`.`classPtId` INNER JOIN `tblUsers` ON `tblClassPts`.`ptId` = `tblUsers`.`userId` WHERE `tblClassPts`.`date` = $1 AND `tblClassPts`.`month` = $2 AND `tblClassPts`.`year` = $3",
           {
             bind: [req.query.date, req.query.month, req.query.year],
             raw: true,
@@ -220,6 +220,7 @@ class historyPT {
       }
       if (data) res.status(200).json({ message: "Success", totalRecord: data.length, data });
     } catch (error) {
+      console.log(error);
       next(error);
     }
   }
