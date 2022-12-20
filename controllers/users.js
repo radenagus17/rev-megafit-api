@@ -714,6 +714,19 @@ class usersController {
     }
   }
 
+  static async findAllPT(req, res, next) {
+    try {
+      const data = await tblUser.findAll({
+        where: { roleId: 6 },
+        include: [{ required: true, model: tblStaff, as: "staff" }, { model: tblRole }],
+      });
+
+      res.status(200).json({ message: "Success", totalRecord: data.length, data });
+    } catch (error) {
+      next(error);
+    }
+  }
+
   static async findOne(req, res, next) {
     let lockerKey = null,
       checkId = null,

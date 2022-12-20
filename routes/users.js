@@ -4,6 +4,7 @@ const { uploadSingle } = require("../middlewares/multer");
 const { authentication } = require("../middlewares/auth");
 
 router.get("/", userController.findAll);
+router.get("/pt", userController.findAllPT);
 router.get("/forget-password", userController.forgetPassword);
 router.get("/check", userController.check);
 router.get("/check-token", authentication, userController.checkToken);
