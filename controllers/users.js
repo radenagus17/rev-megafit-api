@@ -767,7 +767,6 @@ class usersController {
             noBottle = checkNoBottle.noBottle;
             checkId = checkNoBottle.checkId;
           }
-
           res.status(200).json({
             message: "Success",
             data: detailMember,
@@ -808,7 +807,7 @@ class usersController {
             { model: tblStaff, as: "staff" },
             {
               model: tblMember,
-              include: [{ model: tblDataSizeMember }, { model: tblStaff, include: [{ model: tblUser, as: "staff" }] }, { model: tblTaskPT }, { model: tblFoodTracking }],
+              include: [{ model: tblDataSizeMember }, { model: tblStaff, include: [{ model: tblUser, as: "staff" }] }, { model: tblTaskPT }, tblFoodTracking],
             },
             { model: tblCheckinCheckouts, as: "member" },
           ],

@@ -12,6 +12,7 @@ module.exports = (sequelize, DataTypes) => {
       tblSubCategoryMembership.belongsTo(models.tblCategoryMembership, { foreignKey: "categoryMembershipId" });
       tblSubCategoryMembership.hasMany(models.tblPackageMemberships, { foreignKey: "subCategoryMembershipId" });
       tblSubCategoryMembership.hasOne(models.tblCategoryMembership, { foreignKey: "mainPackageId" });
+      tblSubCategoryMembership.hasMany(models.tblMemberClasses, { foreignKey: "subCategoryMembershipId" });
     }
   }
   tblSubCategoryMembership.init(

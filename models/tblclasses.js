@@ -1,7 +1,7 @@
 "use strict";
 const { Model } = require("sequelize");
 module.exports = (sequelize, DataTypes) => {
-  class tblClassPt extends Model {
+  class tblClasses extends Model {
     /**
      * Helper method for defining associations.
      * This method is not a part of Sequelize lifecycle.
@@ -9,31 +9,30 @@ module.exports = (sequelize, DataTypes) => {
      */
     static associate(models) {
       // define association here
-      tblClassPt.belongsTo(models.tblUser, { foreignKey: "ptId" });
-      tblClassPt.hasMany(models.tblHistoryPT, { foreignKey: "classPtId" });
+      tblClasses.belongsTo(models.tblSubCategoryMembership, { foreignKey: "subCategoryMembershipId" });
+      tblClasses.belongsTo(models.tblUser, { foreignKey: "ptId" });
+      tblClasses.hasMany(models.tblHistoryClasses, { foreignKey: "classId" });
     }
   }
-  tblClassPt.init(
+  tblClasses.init(
     {
-      classPtId: {
-        type: DataTypes.INTEGER,
-        primaryKey: true,
-        allowNull: false,
-        autoIncrement: true,
-      },
       ptId: DataTypes.INTEGER,
-      time: DataTypes.TIME,
+      timeIn: DataTypes.TIME,
+      timeOut: DataTypes.TIME,
       date: DataTypes.INTEGER,
       week: DataTypes.INTEGER,
       month: DataTypes.INTEGER,
       year: DataTypes.INTEGER,
       linkZoom: DataTypes.STRING,
-      isOnline: DataTypes.INTEGER,
+      color: DataTypes.STRING,
+      subCategoryMembershipId: DataTypes.INTEGER,
+      limit: DataTypes.INTEGER,
+      isPremium: DataTypes.BOOLEAN,
     },
     {
       sequelize,
-      modelName: "tblClassPt",
+      modelName: "tblClasses",
     }
   );
-  return tblClassPt;
+  return tblClasses;
 };

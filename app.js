@@ -6,7 +6,7 @@ const express = require("express");
 const cors = require("cors");
 const morgan = require("morgan");
 const routes = require("./routes");
-const { rescheduleCRON } = require("./helpers/schedule");
+// const { rescheduleCRON } = require("./helpers/schedule");
 const app = express();
 const portServer = process.env.PORT || 3000;
 
@@ -21,7 +21,7 @@ app.use(morgan("dev"));
 app.use("/", routes);
 
 app.listen(portServer, () => {
-  rescheduleCRON();
+  // rescheduleCRON();
   console.log(`Server listen on ${portServer}`);
 });
 

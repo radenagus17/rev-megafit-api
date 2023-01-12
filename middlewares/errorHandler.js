@@ -29,6 +29,10 @@ function errorHandler(err, req, res, next) {
       status = 403;
       errMessage = "Schedule has on";
       break;
+    case "slotFull":
+      status = 403;
+      errMessage = "Slot Full";
+      break;
     case "nullPG":
       status = 403;
       errMessage = "Tidak Memiliki Sesi Private Gym";
