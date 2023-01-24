@@ -8,7 +8,7 @@ class classPtsController {
     try {
       let dataReturn;
       let newClass = {
-        ptId: req.user.userId,
+        ptId: req.body.userId ?? req.user.userId,
         time: req.body.time,
         date: req.body.date,
         week: req.body.week,
@@ -19,7 +19,7 @@ class classPtsController {
 
       let check = await tblClassPt.findOne({
         where: {
-          ptId: req.user.userId,
+          ptId: req.body.userId ?? req.user.userId,
           time: req.body.time,
           date: req.body.date,
           week: req.body.week,
