@@ -51,6 +51,7 @@ class RevenueController {
           ],
         },
         include: [{ model: tblMember }, { model: tblHistoryPT, include: [{ model: tblClassPt }] }],
+        attributes: { exclude: ["createdAt", "updatedAt"] },
       });
 
       let adminFeeData = await tblTransaction.findAll({

@@ -42,9 +42,7 @@ class usersController {
         ptId: userLogin.tblMember?.tblStaff?.userId || null,
       });
     } catch (error) {
-      // if (error.name === "unauthorized") res.status(401).json({ message: "not authorized" });
       next(error);
-      // console.log(err);
     }
   }
 
