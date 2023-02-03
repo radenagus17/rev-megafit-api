@@ -58,7 +58,7 @@ function errorHandler(err, req, res, next) {
       errMessage = "Internal Server Error";
       break;
   }
-  // console.log(req.body);
+  // console.log(err);
   sendErrorReport(req, req.body.fullname || null, JSON.stringify(req.body), err);
   res.status(status).json({
     success: false,

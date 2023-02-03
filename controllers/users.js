@@ -1,4 +1,18 @@
-const { tblUser, tblStaff, tblMember, tblPackageMemberships, tblDataSizeMember, tblRole, tblFoodTracking, tblTaskPT, tblCheckinCheckouts, tblSubCategoryMembership, tblRevenue, tblCategoryMembership } = require("../models");
+const {
+  tblUser,
+  tblStaff,
+  tblMember,
+  tblPackageMemberships,
+  tblDataSizeMember,
+  tblRole,
+  tblFoodTracking,
+  tblTaskPT,
+  tblCheckinCheckouts,
+  tblSubCategoryMembership,
+  tblRevenue,
+  tblCategoryMembership,
+  tblMemberClasses,
+} = require("../models");
 
 const { compare, hashPass } = require("../helpers/bcrypt");
 const { sign } = require("../helpers/jsonwebtoken");
@@ -18,7 +32,21 @@ class usersController {
         where: {
           username,
         },
-        include: [{ model: tblStaff, as: "staff" }, tblMember],
+        include: [
+          { model: tblStaff, as: "staff" },
+          {
+            model: tblMember,
+            include: [
+              {
+                model: tblMemberClasses,
+                include: { model: tblSubCategoryMembership },
+              },
+              {
+                model: tblStaff,
+              },
+            ],
+          },
+        ],
       });
       if (!userLogin) throw { name: "unauthorized" };
       const pass = compare(password, userLogin.password);
@@ -29,6 +57,7 @@ class usersController {
         token,
         nickname: userLogin.nickname,
         fullname: userLogin.fullname,
+        userId: userLogin.userId,
         roleId: userLogin.roleId,
         hasConfirmTermAndCondition: userLogin.tblMember ? userLogin.tblMember.hasConfirmTermAndCondition : null,
         hasSeenSdkFreeze: userLogin.tblMember ? userLogin.tblMember.hasSeenSdkFreeze : null,
@@ -1576,6 +1605,7 @@ class usersController {
                 },
               ],
             },
+            attributes: { exclude: ["createdAt", "updatedAt"] },
             order: [["activeMembershipExpired", "ASC"]],
           });
 
@@ -1596,6 +1626,7 @@ class usersController {
                 },
               ],
             },
+            attributes: { exclude: ["createdAt", "updatedAt"] },
             order: [["activeMembershipExpired", "ASC"]],
           });
 
@@ -1632,6 +1663,7 @@ class usersController {
                 },
               ],
             },
+            attributes: { exclude: ["createdAt", "updatedAt"] },
             order: [["activeMembershipExpired", "ASC"]],
           });
         }

@@ -16,6 +16,7 @@ class subCategoryMembership {
         adminFee: req.body.adminFee || 0,
         activeFlag: 1,
         isMainPackage: req.body.isMainPackage,
+        isPremium: req.body.isPremium,
       });
 
       if (Number(req.body.isMainPackage) === 1) {
@@ -148,6 +149,7 @@ class subCategoryMembership {
           adminFee: req.body.adminFee || 0,
           activeFlag: req.body.activeFlag,
           isMainPackage: req.body.isMainPackage,
+          isPremium: req.body.isPremium,
         },
         { where: { id: req.params.id } }
       );

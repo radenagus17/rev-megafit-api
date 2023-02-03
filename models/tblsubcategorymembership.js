@@ -25,6 +25,7 @@ module.exports = (sequelize, DataTypes) => {
       adminFee: DataTypes.INTEGER,
       activeFlag: DataTypes.INTEGER,
       isMainPackage: DataTypes.INTEGER,
+      isPremium: DataTypes.BOOLEAN,
     },
     {
       sequelize,

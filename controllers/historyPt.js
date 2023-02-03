@@ -169,7 +169,7 @@ class historyPT {
         await data.sort(compareYear);
       } else if (req.query.laporan === "true") {
         let history = await tblHistoryPT.sequelize.query(
-          "SELECT tblMembers.memberId,tblUsers.fullname AS `PT`,tblClassPts.time,tblClassPts.date,tblClassPts.week,tblClassPts.month,tblClassPts.year,tblClassPts.isOnline FROM `tblHistoryPTs`  INNER JOIN `tblMembers` ON tblHistoryPTs.userId = tblMembers.userId LEFT OUTER JOIN tblClassPts ON tblHistoryPTs.classPtId = tblClassPts.classPtId LEFT OUTER JOIN tblUsers on tblClassPts.ptId = tblUsers.userId ORDER BY `tblClassPts`.`week` ASC, `tblClassPts`.`month` ASC, `tblClassPts`.`date` ASC",
+          "SELECT tblMembers.memberId,tblUsers.fullname AS `PT`,tblClassPts.time,tblClassPts.date,tblClassPts.week,tblClassPts.month,tblClassPts.year,tblRevenues.packagePT,tblRevenues.pricePT,tblRevenues.timesPT FROM `tblHistoryPTs` INNER JOIN `tblMembers` ON tblHistoryPTs.userId = tblMembers.userId LEFT OUTER JOIN tblRevenues ON tblHistoryPTs.revenueId = tblRevenues.id LEFT OUTER JOIN tblClassPts ON tblHistoryPTs.classPtId = tblClassPts.classPtId LEFT OUTER JOIN tblUsers on tblClassPts.ptId = tblUsers.userId ORDER BY `tblClassPts`.`week` ASC, `tblClassPts`.`month` ASC, `tblClassPts`.`date` ASC",
           {
             raw: true,
             type: QueryTypes.SELECT,

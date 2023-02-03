@@ -27,7 +27,7 @@ module.exports = (sequelize, DataTypes) => {
       color: DataTypes.STRING,
       subCategoryMembershipId: DataTypes.INTEGER,
       limit: DataTypes.INTEGER,
-      isPremium: DataTypes.BOOLEAN,
+      // isPremium: DataTypes.BOOLEAN,
     },
     {
       sequelize,

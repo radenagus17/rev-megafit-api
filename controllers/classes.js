@@ -19,7 +19,7 @@ class classesController {
         color: req.body.color,
         linkZoom: req.body.linkZoom,
         limit: req.body.limit,
-        isPremium: req.body.isPremium,
+        // isPremium: req.body.isPremium,
       };
 
       let createClass = await tblClasses.create(newClass);
@@ -153,7 +153,7 @@ class classesController {
           color: req.body.color,
           linkZoom: req.body.linkZoom,
           limit: req.body.limit,
-          isPremium: req.body.isPremium,
+          // isPremium: req.body.isPremium,
         };
         let updateClass = await tblClasses.update(newClass, {
           where: { id: req.params.id },
@@ -163,15 +163,15 @@ class classesController {
           include: [{ model: tblSubCategoryMembership }, { model: tblUser }],
         });
         if (updateClass) res.status(200).json({ message: "Success", data: dataReturn });
-      } else if (req.query.edit === "class-premium") {
-        //update class
-        query = "?edit=class-premium";
-        let updateClass = await tblClasses.update({ isPremium: req.body.isPremium }, { where: { id: req.params.id } });
-        let dataReturn = await tblClasses.findByPk(req.params.id, {
-          include: [{ model: tblSubCategoryMembership }, { model: tblUser }],
-          attributes: { exclude: ["linkZoom"] },
-        });
-        if (updateClass) res.status(200).json({ message: "Success", data: dataReturn });
+        // } else if (req.query.edit === "class-premium") {
+        //   //update class
+        //   query = "?edit=class-premium";
+        //   let updateClass = await tblClasses.update({ isPremium: req.body.isPremium }, { where: { id: req.params.id } });
+        //   let dataReturn = await tblClasses.findByPk(req.params.id, {
+        //     include: [{ model: tblSubCategoryMembership }, { model: tblUser }],
+        //     attributes: { exclude: ["linkZoom"] },
+        //   });
+        //   if (updateClass) res.status(200).json({ message: "Success", data: dataReturn });
       } else if (req.query.edit === "pt") {
         //update pt
         query = "?edit=pt";
