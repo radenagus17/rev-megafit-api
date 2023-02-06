@@ -10,7 +10,7 @@ module.exports = (sequelize, DataTypes) => {
     static associate(models) {
       // define association here
       tblHistoryClasses.belongsTo(models.tblUser, { foreignKey: "userId" });
-      // tblHistoryClasses.belongsTo(models.tblClasses, { foreignKey: 'classId' })
+      tblHistoryClasses.belongsTo(models.tblClasses, { foreignKey: "classId" });
     }
   }
   tblHistoryClasses.init(

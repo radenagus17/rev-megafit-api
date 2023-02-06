@@ -1,4 +1,4 @@
-const { tblClassPt, tblUser, tblHistoryPT, tblMember, tblTransaction, tblOrderList, tblPackageMemberships, tblRevenue } = require("../models");
+const { tblClassPt, tblUser, tblHistoryPT, tblMember, tblTransaction, tblOrderList, tblPackageMemberships, tblRevenue, tblStaff } = require("../models");
 const Op = require("sequelize").Op;
 const { getWeek } = require("../helpers/getNumberOfWeek");
 const { createDateAsUTC } = require("../helpers/convertDate");
@@ -8,7 +8,7 @@ class classPtsController {
     try {
       let dataReturn;
       let newClass = {
-        ptId: req.user.userId,
+        ptId: req.body.userId ? req.body.userId : req.user.userId,
         time: req.body.time,
         date: req.body.date,
         week: req.body.week,
@@ -31,9 +31,7 @@ class classPtsController {
       if (!check) {
         let createClass = await tblClassPt.create(newClass);
 
-        dataReturn = await tblClassPt.findByPk(createClass.classPtId, {
-          include: [{ model: tblClassPt }],
-        });
+        dataReturn = await tblClassPt.findByPk(createClass.classPtId);
 
         res.status(201).json({ message: "Success", data: dataReturn });
       } else {
@@ -153,10 +151,19 @@ class classPtsController {
       // clg token === id user
       let member = await tblMember.findOne({
         where: { userId: req.user.userId },
+        include: { model: tblStaff },
       });
 
+      // destructuring member
+      const {
+        dataValues: {
+          tblStaff: {
+            dataValues: { userId },
+          },
+        },
+      } = member;
+
       if (member.ptSession > 0) {
-        //! this is bug
         let revenue = await tblRevenue.findAll({
           where: {
             [Op.and]: [{ memberId: member.memberId }, { packagePT: { [Op.not]: null } }, { isDone: { [Op.not]: true } }],
@@ -182,9 +189,12 @@ class classPtsController {
 
         if (cekDataHistory) throw { name: "notFound" };
 
+        //* cek data classPtId yang masuk
+        let classPt = await checkClassPtId(req.params.id, userId);
+
         let newData = {
           userId: req.user.userId,
-          classPtId: req.params.id,
+          classPtId: classPt ?? req.params.id,
           transactionId: transaction || null,
           // revenueId: revenue.length ? revenue[0].id : null,
           revenueId: revenue[0].id,
@@ -268,6 +278,37 @@ class classPtsController {
       next(error);
     }
   }
+}
+
+async function checkClassPtId(classPtId, ptIdMember) {
+  // todo ambil time dari classPts brdasarkan params classPtId
+  const { time } = await tblClassPt.findByPk(classPtId);
+
+  // todo cocokkan data yang masuk brdasarkan ptId dari tblMember, time dari classPts, year tahun masuk hari ini, month bulan masuk hari ini, date tanggal masuk hari ini
+  let classPt = await tblClassPt.findOne({
+    where: {
+      [Op.and]: [
+        {
+          ptId: ptIdMember,
+        },
+        {
+          time,
+        },
+        {
+          year: new Date().getFullYear(),
+        },
+        {
+          month: new Date().getMonth() + 1,
+        },
+        {
+          date: new Date().getDate(),
+        },
+      ],
+    },
+  });
+
+  if (classPt) return classPt.classPtId;
+  else return null;
 }
 
 async function checkTransaction(userId) {

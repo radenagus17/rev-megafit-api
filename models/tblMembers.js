@@ -23,7 +23,7 @@ module.exports = (sequelize, DataTypes) => {
       tblMember.hasMany(models.tblTransaction, { foreignKey: "memberId" });
       tblMember.hasMany(models.tblTaskPT, { foreignKey: "memberId" });
       tblMember.hasMany(models.tblFoodTracking, { foreignKey: "memberId" });
-      // tblMembers.hasMany(models.tblMemberClasses, { foreignKey: "memberId" });
+      tblMember.hasMany(models.tblMemberClasses, { foreignKey: "memberId" });
       tblMember.hasMany(models.tblRevenue, { foreignKey: "memberId" });
     }
   }
@@ -32,6 +32,8 @@ module.exports = (sequelize, DataTypes) => {
       memberId: {
         type: DataTypes.INTEGER,
         primaryKey: true,
+        allowNull: false,
+        autoIncrement: true,
       },
       userId: DataTypes.INTEGER,
       activeExpired: DataTypes.DATE,

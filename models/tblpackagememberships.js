@@ -21,6 +21,8 @@ module.exports = (sequelize, DataTypes) => {
       packageMembershipId: {
         type: DataTypes.STRING,
         primaryKey: true,
+        allowNull: false,
+        autoIncrement: true,
       },
       package: DataTypes.STRING,
       subCategoryMembershipId: DataTypes.INTEGER,

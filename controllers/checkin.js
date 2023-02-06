@@ -86,12 +86,12 @@ class checkinController {
                   lastCheckin: createDateAsUTC(new Date()),
                 };
                 // comment line semua isi di if ini kalo mau trial jadi satu hari
-                if (dataMembers.packageMembershipId === "Trial") {
-                  let { access } = await tblSubCategoryMembership.findOne({
-                    where: { categoryMembershipId: 3 },
-                  });
-                  if (access === "Sesi") memberUpdateData.activeExpired = createDateAsUTC(new Date());
-                }
+                // if (dataMembers.packageMembershipId === "Trial") {
+                //   let { access } = await tblSubCategoryMembership.findOne({
+                //     where: { categoryMembershipId: 3 },
+                //   });
+                //   if (access === "Sesi") memberUpdateData.activeExpired = createDateAsUTC(new Date());
+                // }
                 await tblUser.update({ flagActive: true }, { where: { userId: dataMembers.userId } });
               } else {
                 memberUpdateData = { lastCheckin: createDateAsUTC(new Date()) };

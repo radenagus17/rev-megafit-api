@@ -38,11 +38,9 @@ module.exports = (sequelize, DataTypes) => {
         foreignKey: "adminIdCheckout",
         as: "admin_checkout",
       });
-      // tblUsers.hasMany(models.tblTransactions, { foreignKey: "memberId" });
-      // tblUsers.hasMany(models.tblTransactions, { foreignKey: "staffId" });
       tblUser.hasMany(models.tblHistoryPT, { foreignKey: "userId" });
       tblUser.hasMany(models.tblLog, { foreignKey: "userId" });
-      // tblUsers.hasMany(models.tblClasses, { foreignKey: "ptId" });
+      tblUser.hasMany(models.tblClasses, { foreignKey: "ptId" });
       tblUser.hasMany(models.tblHistoryClasses, { foreignKey: "userId" });
     }
   }
@@ -51,6 +49,8 @@ module.exports = (sequelize, DataTypes) => {
       userId: {
         type: DataTypes.INTEGER,
         primaryKey: true,
+        allowNull: false,
+        autoIncrement: true,
       },
       username: DataTypes.STRING,
       password: DataTypes.STRING,

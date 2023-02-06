@@ -19,6 +19,8 @@ module.exports = (sequelize, DataTypes) => {
       checkId: {
         type: DataTypes.INTEGER,
         primaryKey: true,
+        allowNull: false,
+        autoIncrement: true,
       },
       userId: DataTypes.INTEGER,
       adminIdCheckin: DataTypes.INTEGER,

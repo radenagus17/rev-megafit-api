@@ -24,6 +24,8 @@ module.exports = (sequelize, DataTypes) => {
       staffId: {
         type: DataTypes.INTEGER,
         primaryKey: true,
+        allowNull: false,
+        autoIncrement: true,
       },
       userId: DataTypes.INTEGER,
       isPermanent: DataTypes.BOOLEAN,

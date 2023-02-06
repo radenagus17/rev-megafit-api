@@ -1,4 +1,4 @@
-const { sendErrorReport } = require("../helpers/nodemailer");
+// const { sendErrorReport } = require("../helpers/nodemailer");
 
 function errorHandler(err, req, res, next) {
   let status = null;
@@ -29,6 +29,10 @@ function errorHandler(err, req, res, next) {
       status = 403;
       errMessage = "Schedule has on";
       break;
+    case "slotFull":
+      status = 403;
+      errMessage = "Slot Full";
+      break;
     case "nullPG":
       status = 403;
       errMessage = "Tidak Memiliki Sesi Private Gym";
@@ -54,7 +58,8 @@ function errorHandler(err, req, res, next) {
       errMessage = "Internal Server Error";
       break;
   }
-  sendErrorReport(req, req.body.fullname || null, JSON.stringify(req.body), err);
+  console.log(err);
+  // sendErrorReport(req, req.body.fullname || null, JSON.stringify(req.body), err);
   res.status(status).json({
     success: false,
     error: errMessage,
