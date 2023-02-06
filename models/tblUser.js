@@ -43,7 +43,7 @@ module.exports = (sequelize, DataTypes) => {
       tblUser.hasMany(models.tblHistoryPT, { foreignKey: "userId" });
       tblUser.hasMany(models.tblLog, { foreignKey: "userId" });
       // tblUsers.hasMany(models.tblClasses, { foreignKey: "ptId" });
-      // tblUsers.hasMany(models.tblHistoryClasses, { foreignKey: "userId" });
+      tblUser.hasMany(models.tblHistoryClasses, { foreignKey: "userId" });
     }
   }
   tblUser.init(
