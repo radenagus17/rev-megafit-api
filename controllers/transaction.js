@@ -1,9 +1,10 @@
-const { tblUser, tblMember, tblPackageMemberships, tblSubCategoryMembership, tblTransaction, tblOrderList, tblStaff, tblRevenue, tblTempRevenue } = require("../models");
+const { tblUser, tblMember, tblPackageMemberships, tblSubCategoryMembership, tblTransaction, tblOrderList, tblStaff, tblRevenue, tblTempRevenue, tblClasses } = require("../models");
 const Op = require("sequelize").Op;
 const { createDateAsUTC } = require("../helpers/convertDate");
 const { rememberExtendPackage } = require("../helpers/schedule");
 const { mailOptions, transporter, footerMail } = require("../helpers/nodemailer");
 const axios = require("axios");
+const moment = require("moment")
 const xendit = require("../helpers/xendit");
 
 class TransactionController {
@@ -308,6 +309,7 @@ class TransactionController {
         let paketPT = cart.find((el) => el.categoryMembershipId === 2);
         let paketOnline = cart.find((el) => el.categoryMembershipId === 5);
         let paketLeave = cart.find((el) => el.categoryMembershipId === 4);
+        let paketKelas = cart.find((el) => el.categoryMembershipId === 6);
         let paketPG = cart.find((el) => el.packageMembershipId === "NVIP" || el.packageMembershipId === "VIP");
 
         let data = {
@@ -356,7 +358,7 @@ class TransactionController {
         }
 
         // UPDATE DATA SETELAH PEMBAYARAN
-        if (paketMember || paketPT || paketLeave || paketPG) {
+        if (paketMember || paketPT || paketLeave || paketPG || paketKelas) {
           revenueData.pricePT = paketPT && paketPT.tblPackageMembership.price;
           revenueData.packagePT = paketPT && paketPT.tblPackageMembership.packageMembershipId;
           revenueData.timesPT = paketPT && paketPT.tblPackageMembership.times;
@@ -365,6 +367,7 @@ class TransactionController {
           data.sisaLastPTSession = paketPT && member.ptSession;
           data.leaveStatus = paketLeave && "PAID";
           data.PG_Session = paketPG && !member.PG_Session ? 1 : member.PG_Session + 1;
+          data.classId = paketKelas.tblPackageMembership.packageMembershipId
           await tblMember.update(data, {
             where: { memberId: member.memberId },
           });

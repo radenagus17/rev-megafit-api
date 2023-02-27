@@ -30,7 +30,7 @@ async function rememberExtendPackage(memberId) {
     schedule.scheduleJob(date, async function () {
       let newDataMember = await tblMember.findByPk(memberId);
       if (newDataMember && "" + newDataMember.activeExpired === "" + oldDataMember.activeExpired && !newDataMember.isFreeze) {
-        await sendEmailRememberMembership(oldDataMember.tblUser.nickname, oldDataMember.tblUser.email, getDate(oldDataMember.activeExpired));
+        await sendEmailRememberMembership(oldDataMember.tblUser.nickname, oldDataMember.tblUser.email, handleGetDate(oldDataMember.activeExpired));
         await rememberNonActiveMembership(memberId);
         console.log("rememberExtendPackage Sukses", memberId, createDateAsUTC(new Date()));
       } else {
@@ -50,7 +50,7 @@ async function rememberNonActiveMembership(memberId) {
     schedule.scheduleJob(date, async function () {
       let newDataMember = await tblMember.findByPk(memberId);
       if (newDataMember && "" + newDataMember.activeExpired === "" + oldDataMember.activeExpired && !newDataMember.isFreeze) {
-        await sendEmailRememberMembership(oldDataMember.tblUser.nickname, oldDataMember.tblUser.email, getDate(oldDataMember.activeExpired), "non active");
+        await sendEmailRememberMembership(oldDataMember.tblUser.nickname, oldDataMember.tblUser.email, handleGetDate(oldDataMember.activeExpired), "non active");
         await nonActiveMembership(memberId, oldDataMember.activeExpired);
         console.log("rememberNonActiveMembership Sukses", memberId, createDateAsUTC(new Date()));
       } else {
@@ -844,7 +844,7 @@ async function handleKreditMember() {
 }
 //===================== PERPANJANG MEMBERSHIP APABILA MEMBER BELUM AKTIF (END) ===============
 
-function getDate(args) {
+function handleGetDate(args) {
   const months = ["Januari", "Februari", "Maret", "April", "Mei", "Juni", "Juli", "Agustus", "September", "Oktober", "November", "Desember"];
 
   return `${args.getDate()} ${months[args.getMonth()]} ${args.getFullYear()}`;

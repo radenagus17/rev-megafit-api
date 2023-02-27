@@ -12,6 +12,7 @@ const {
   tblRevenue,
   tblCategoryMembership,
   tblMemberClasses,
+  tblClasses
 } = require("../models");
 
 const { compare, hashPass } = require("../helpers/bcrypt");
@@ -21,7 +22,7 @@ const moment = require("moment");
 const QRCode = require("qrcode");
 const excelToJson = require("convert-excel-to-json");
 const { createDateAsUTC } = require("../helpers/convertDate");
-const { mailOptions, transporter, footerMail, baseUrlServer } = require("../helpers/nodemailer");
+const { mailOptions, transporter, footerMail, baseUrlServer, baseUrlClient } = require("../helpers/nodemailer");
 
 class usersController {
   static async signin(req, res, next) {
@@ -48,7 +49,16 @@ class usersController {
           },
         ],
       });
+      const theRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*[0-9])(?=.{8,}).*$/g;
+      const result = theRegex.test(password)
       if (!userLogin) throw { name: "unauthorized" };
+      if(!result) res.status(403).json({
+        success: false,
+        error: "At least 8 characters, min 1 Uppercase 1 Lowercase 1 Number 1",
+        changePass: true,
+        userId: userLogin.userId,
+        password_lama: password
+      })
       const pass = compare(password, userLogin.password);
       if (!pass) throw { name: "unauthorized" };
       const token = sign({ userId: userLogin.userId, email: userLogin.email });
@@ -71,7 +81,6 @@ class usersController {
         ptId: userLogin.tblMember?.tblStaff?.userId || null,
       });
     } catch (error) {
-      console.log(error)
       next(error);
     }
   }
@@ -184,7 +193,7 @@ class usersController {
         let createMember, updateMember;
         let newMember = {
           memberId: lastIdNumber[0].memberId < 2000 ? 2000 : lastIdNumber[0].memberId + 1,
-          userId: createUser.null,
+          userId: createUser.userId,
           cardImage: "",
           activeExpired: activeExpired === "null" || !activeExpired ? null : createDateAsUTC(new Date(activeExpired)),
           ptId: ptId === "null" || ptId === "" ? null : ptId,
@@ -196,7 +205,7 @@ class usersController {
 
         if (createUser) createMember = await tblMember.create(newMember);
 
-        let nameImageCard = createMember.null;
+        let nameImageCard = createMember.memberId;
         await QRCode.toFile(`./qr/${nameImageCard}.png`, `${nameImageCard}`, {
           color: {
             dark: "#000",
@@ -495,7 +504,6 @@ class usersController {
 
       res.status(200).json({ message: "Success", data: dataReturn });
     } catch (error) {
-      console.log(error);
       next(error);
     }
   }
@@ -835,7 +843,7 @@ class usersController {
             { model: tblStaff, as: "staff" },
             {
               model: tblMember,
-              include: [{ model: tblDataSizeMember }, { model: tblStaff, include: [{ model: tblUser, as: "staff" }] }, { model: tblTaskPT }, tblFoodTracking],
+              include: [{ model: tblDataSizeMember }, { model: tblStaff, include: [{ model: tblUser, as: "staff" }] }, { model: tblTaskPT }, {model: tblFoodTracking}, {model: tblClasses}],
             },
             { model: tblCheckinCheckouts, as: "member" },
           ],

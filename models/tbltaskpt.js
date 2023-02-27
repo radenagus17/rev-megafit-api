@@ -18,7 +18,7 @@ module.exports = (sequelize, DataTypes) => {
       week: DataTypes.INTEGER,
       year: DataTypes.INTEGER,
       task: DataTypes.STRING,
-      taskDone: DataTypes.INTEGER,
+      taskDone: DataTypes.BOOLEAN,
       ptId: DataTypes.INTEGER,
       memberId: DataTypes.INTEGER,
     },

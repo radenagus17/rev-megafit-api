@@ -4,3 +4,8 @@ config
 qr
 uploads
 package-lock.json
+yarn.lock
+.pnp.loader.mjs
+.pnp.cjs
+.pnp.mjs
+.yarn

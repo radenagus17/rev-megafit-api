@@ -22,7 +22,7 @@ function errorHandler(err, req, res, next) {
       errMessage = "Failed user not found";
       break;
     case "notFound":
-      status = 400;
+      status = 404;
       errMessage = "Data Not Found";
       break;
     case "scheduleOn":
@@ -33,6 +33,13 @@ function errorHandler(err, req, res, next) {
       status = 403;
       errMessage = "Slot Full";
       break;
+    // case "pass_unique":
+    //   status = 403;
+    //   errMessage = "At least 8 characters, min 1 Uppercase 1 Lowercase 1 Number 1";
+    //   changePass = true;
+    //   userId = req.body.userId;
+    //   password_lama = req.body.password
+    //   break;
     case "nullPG":
       status = 403;
       errMessage = "Tidak Memiliki Sesi Private Gym";

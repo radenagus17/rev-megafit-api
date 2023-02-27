@@ -29,7 +29,7 @@ module.exports = (sequelize, DataTypes) => {
       checkinTime: DataTypes.TIME,
       checkoutTime: DataTypes.TIME,
       lockerKey: DataTypes.STRING,
-      isReservation: DataTypes.INTEGER,
+      isReservation: DataTypes.BOOLEAN,
       reservationTime: DataTypes.TIME,
       noBottle: DataTypes.STRING,
     },

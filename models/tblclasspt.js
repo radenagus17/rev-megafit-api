@@ -28,7 +28,7 @@ module.exports = (sequelize, DataTypes) => {
       month: DataTypes.INTEGER,
       year: DataTypes.INTEGER,
       linkZoom: DataTypes.STRING,
-      isOnline: DataTypes.INTEGER,
+      isOnline: DataTypes.BOOLEAN,
     },
     {
       sequelize,

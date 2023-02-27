@@ -35,27 +35,27 @@ class subCategoryMembership {
 
       await tblPackageMemberships.create(newPackageMembership);
 
-      let grosirPrice;
+      // let grosirPrice;
 
-      if (typeof req.body.grosirPrice === "object") {
-        grosirPrice = req.body.grosirPrice;
-      } else {
-        grosirPrice = JSON.parse(req.body.grosirPrice);
-      }
+      // if (typeof req.body.grosirPrice === "object") {
+      //   grosirPrice = req.body.grosirPrice;
+      // } else {
+      //   grosirPrice = JSON.parse(req.body.grosirPrice);
+      // }
 
-      grosirPrice.forEach(async (element) => {
-        let newPackageMembership = {
-          packageMembershipId: element.id,
-          package: req.body.package,
-          subCategoryMembershipId: subCategoryMemberships.id,
-          price: element.price,
-          activeMember: 0,
-          times: element.times,
-        };
-        if (Number(req.body.categoryMembershipId) === 2 || Number(req.body.categoryMembershipId) === 5) newPackageMembership.sessionPtHours = element.sessionPtHours;
+      // grosirPrice.forEach(async (element) => {
+      //   let newPackageMembership = {
+      //     packageMembershipId: element.id,
+      //     package: req.body.package,
+      //     subCategoryMembershipId: subCategoryMemberships.id,
+      //     price: element.price,
+      //     activeMember: 0,
+      //     times: element.times,
+      //   };
+      //   if (Number(req.body.categoryMembershipId) === 2 || Number(req.body.categoryMembershipId) === 5) newPackageMembership.sessionPtHours = element.sessionPtHours;
 
-        await tblPackageMemberships.create(newPackageMembership);
-      });
+      //   await tblPackageMemberships.update(newPackageMembership, { where: { packageMembershipId: req.body.packageMembershipId } });
+      // });
 
       res.status(201).json({ message: "Success", data: subCategoryMemberships });
     } catch (error) {
@@ -158,58 +158,76 @@ class subCategoryMembership {
         await tblCategoryMembership.update({ mainPackageId: req.params.id }, { where: { categoryMembershipId: req.body.categoryMembershipId } });
       }
 
-      if (req.body.packageMembershipId) {
-        //Update Package
-        let newPackageMembership = {
-          package: req.body.package,
-          subCategoryMembershipId: req.params.id,
-          price: req.body.price,
-          times: req.body.times,
-        };
-        if (Number(req.body.categoryMembershipId) === 2 || Number(req.body.categoryMembershipId) === 5) newPackageMembership.sessionPtHours = req.body.sessionPtHours;
+      let dataPackageMembership = await tblPackageMemberships.findOne({where:{package: req.body.package}})
 
-        let grosirPrice;
+      //Update Package
+      let newPackageMembership = {
+        package: req.body.package,
+        packageMembershipId: req.body.packageMembershipId,
+        subCategoryMembershipId: req.params.id,
+        price: req.body.price,
+        times: req.body.times,
+      };
+      if (Number(req.body.categoryMembershipId) === 2 || Number(req.body.categoryMembershipId) === 5) newPackageMembership.sessionPtHours = req.body.sessionPtHours;
 
-        if (typeof req.body.grosirPrice === "object") {
-          grosirPrice = req.body.grosirPrice;
-        } else {
-          grosirPrice = JSON.parse(req.body.grosirPrice);
-        }
+      await tblPackageMemberships.update(newPackageMembership, { where: { packageMembershipId: dataPackageMembership.packageMembershipId } })
 
-        //Update change Package Grosir
-        grosirPrice.forEach(async (element) => {
-          let newPackageMembership = {
-            packageMembershipId: element.id,
-            package: req.body.package,
-            subCategoryMembershipId: req.params.id,
-            price: element.price,
-            activeMember: 0,
-            times: element.times,
-          };
-          if (Number(req.body.categoryMembershipId) === 2 || Number(req.body.categoryMembershipId) === 5) newPackageMembership.sessionPtHours = element.sessionPtHours;
 
-          await tblPackageMemberships.upsert(newPackageMembership);
-        });
+      // if (req.body.packageMembershipId) {
+      //   //Update Package
+      //   let newPackageMembership = {
+      //     package: req.body.package,
+      //     packageMembershipId: req.body.packageMembershipId,
+      //     subCategoryMembershipId: req.params.id,
+      //     price: req.body.price,
+      //     times: req.body.times,
+      //   };
+      //   if (Number(req.body.categoryMembershipId) === 2 || Number(req.body.categoryMembershipId) === 5) newPackageMembership.sessionPtHours = req.body.sessionPtHours;
 
-        //Delete package when not available in grosirPrice
-        let packageMemberships = await tblPackageMemberships.findAll({
-          where: { subCategoryMembershipId: req.params.id },
-        });
+      //   await tblPackageMemberships.update(newPackageMembership)
 
-        packageMemberships.forEach(async (element, index) => {
-          if (index !== 0) {
-            let isAvailable = grosirPrice.find((el) => el.id === element.packageMembershipId);
+      //   let grosirPrice;
 
-            if (!isAvailable) {
-              await tblPackageMemberships.destroy({
-                where: { packageMembershipId: element.packageMembershipId },
-              });
-            }
-          }
-        });
-      }
+      //   if (typeof req.body.grosirPrice === "object") {
+      //     grosirPrice = req.body.grosirPrice;
+      //   } else {
+      //     grosirPrice = JSON.parse(req.body.grosirPrice);
+      //   }
 
-      let dataReturn = await tblSubCategoryMembership.findByPk(req.params.id);
+      //   //Update change Package Grosir
+      //   grosirPrice.forEach(async (element) => {
+      //     let newPackageMembership = {
+      //       packageMembershipId: element.id,
+      //       package: req.body.package,
+      //       subCategoryMembershipId: req.params.id,
+      //       price: element.price,
+      //       activeMember: 0,
+      //       times: element.times,
+      //     };
+      //     if (Number(req.body.categoryMembershipId) === 2 || Number(req.body.categoryMembershipId) === 5) newPackageMembership.sessionPtHours = element.sessionPtHours;
+
+      //     await tblPackageMemberships.upsert(newPackageMembership);
+      //   });
+
+      //   //Delete package when not available in grosirPrice
+      //   let packageMemberships = await tblPackageMemberships.findAll({
+      //     where: { subCategoryMembershipId: req.params.id },
+      //   });
+
+      //   packageMemberships.forEach(async (element, index) => {
+      //     if (index !== 0) {
+      //       let isAvailable = grosirPrice.find((el) => el.id === element.packageMembershipId);
+
+      //       if (!isAvailable) {
+      //         await tblPackageMemberships.destroy({
+      //           where: { packageMembershipId: element.packageMembershipId },
+      //         });
+      //       }
+      //     }
+      //   });
+      // }
+
+      let dataReturn = await tblSubCategoryMembership.findByPk(req.params.id, {include: { model: tblPackageMemberships },});
       if (!subCategoryMemberships) throw { name: "notFound" };
       res.status(200).json({ message: "Success", data: dataReturn });
     } catch (error) {

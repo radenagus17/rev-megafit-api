@@ -25,6 +25,7 @@ module.exports = (sequelize, DataTypes) => {
       tblMember.hasMany(models.tblFoodTracking, { foreignKey: "memberId" });
       tblMember.hasMany(models.tblMemberClasses, { foreignKey: "memberId" });
       tblMember.hasMany(models.tblRevenue, { foreignKey: "memberId" });
+      tblMember.belongsTo(models.tblClasses, { foreignKey: "classId" });
     }
   }
   tblMember.init(
@@ -59,6 +60,7 @@ module.exports = (sequelize, DataTypes) => {
       PG_Session: DataTypes.INTEGER,
       leaveStatus: DataTypes.STRING,
       invited_by: DataTypes.INTEGER,
+      classId: DataTypes.INTEGER,
     },
     {
       sequelize,

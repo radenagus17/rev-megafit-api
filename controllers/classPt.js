@@ -76,10 +76,29 @@ class classPtsController {
             ["time", "ASC"],
           ],
         });
+      } else if(req.query.by_date === "true"){
+        let hour = Number(req.query.hour);
+
+        if (hour < 10) hour = `0${hour}:00:00`;
+        else hour = `${hour}:00:00`;
+
+        data = await tblClassPt.findAll({
+          where: {
+            [Op.and]: [{ time: hour }, { date: Number(req.query.date.slice(8, 10)) }, { week: getWeek(req.query.date) }, { year: req.query.date.slice(0, 4) }],
+          },
+          include: [{ model: tblUser }, { model: tblHistoryPT }],
+          order: [
+            ["year", "ASC"],
+            ["month", "ASC"],
+            ["week", "ASC"],
+            ["date", "ASC"],
+            ["time", "ASC"],
+          ],
+        });
       } else {
         data = await tblClassPt.findAll({
           where: {
-            ptId: req.user.userId,
+            ptId: req.query.id ? req.query.id : req.user.userId,
             week: req.query.week,
             year: req.query.year,
           },
@@ -92,7 +111,8 @@ class classPtsController {
           ],
         });
       }
-      if (data) res.status(200).json({ message: "Success", totalRecord: data.length, data });
+      // if(data.length == 0) throw {name: "notFound"}
+     if(data) res.status(200).json({ message: "Success", totalRecord: data.length, data })
     } catch (error) {
       next(error);
     }
@@ -171,7 +191,7 @@ class classPtsController {
           order: [["id", "ASC"]],
         });
 
-        let transaction = await checkTransaction(req.user.userId);
+        // let transaction = await checkTransaction(req.user.userId);
 
         // cek data historyPT jika ada yang kembar
         let cekDataHistory = await tblHistoryPT.findOne({
@@ -195,7 +215,7 @@ class classPtsController {
         let newData = {
           userId: req.user.userId,
           classPtId: classPt ?? req.params.id,
-          transactionId: transaction || null,
+          transactionId: null,
           // revenueId: revenue.length ? revenue[0].id : null,
           revenueId: revenue[0].id,
         };
@@ -311,43 +331,43 @@ async function checkClassPtId(classPtId, ptIdMember) {
   else return null;
 }
 
-async function checkTransaction(userId) {
-  let member = await tblMember.findOne({ where: { userId } });
+// async function checkTransaction(userId) {
+//   let member = await tblMember.findOne({ where: { userId } });
 
-  let transaction = await tblTransaction.findAll({
-    where: { status: "paid", memberId: member.memberId },
-    include: [
-      {
-        model: tblOrderList,
-        where: { categoryMembershipId: 2 },
-        include: [{ model: tblPackageMemberships }],
-        order: [["id", "ASC"]],
-      },
-    ],
-    order: [["transactionId", "DESC"]],
-    limit: 5,
-  });
+//   let transaction = await tblTransaction.findAll({
+//     where: { status: "paid", memberId: member.memberId },
+//     include: [
+//       {
+//         model: tblOrderList,
+//         where: { categoryMembershipId: 2 },
+//         include: [{ model: tblPackageMemberships }],
+//         order: [["id", "ASC"]],
+//       },
+//     ],
+//     order: [["transactionId", "DESC"]],
+//     limit: 5,
+//   });
 
-  let tempPTSession = +member.ptSession,
-    packageSelected,
-    trans;
-  await transaction.forEach(async (element) => {
-    if (tempPTSession > 0) {
-      await element.tblOrderList.forEach((el) => {
-        if (tempPTSession > 0) {
-          let newRemainingPTSession = tempPTSession - +el.quantity * +el.tblPackageMembership.times;
-          tempPTSession = newRemainingPTSession;
-          if (newRemainingPTSession < 0) {
-            packageSelected = el.tblPackageMembership;
-            trans = element;
-          }
-        }
-      });
-    }
-  });
+//   let tempPTSession = +member.ptSession,
+//     packageSelected,
+//     trans;
+//   await transaction.forEach(async (element) => {
+//     if (tempPTSession > 0) {
+//       await element.tblOrderList.forEach((el) => {
+//         if (tempPTSession > 0) {
+//           let newRemainingPTSession = tempPTSession - +el.quantity * +el.tblPackageMembership.times;
+//           tempPTSession = newRemainingPTSession;
+//           if (newRemainingPTSession < 0) {
+//             packageSelected = el.tblPackageMembership;
+//             trans = element;
+//           }
+//         }
+//       });
+//     }
+//   });
 
-  if (trans) return trans.transactionId;
-  else return null;
-}
+//   if (trans) return trans.transactionId;
+//   else return null;
+// }
 
 module.exports = classPtsController;

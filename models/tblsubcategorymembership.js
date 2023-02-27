@@ -23,8 +23,8 @@ module.exports = (sequelize, DataTypes) => {
       endPromo: DataTypes.DATE,
       access: DataTypes.STRING,
       adminFee: DataTypes.INTEGER,
-      activeFlag: DataTypes.INTEGER,
-      isMainPackage: DataTypes.INTEGER,
+      activeFlag: DataTypes.BOOLEAN,
+      isMainPackage: DataTypes.BOOLEAN,
       isPremium: DataTypes.BOOLEAN,
     },
     {

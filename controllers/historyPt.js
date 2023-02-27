@@ -179,7 +179,7 @@ class historyPT {
         data = history.filter((x) => moment(`${x.year}-${x.month}-${x.date}`, "YYYY-MM-DD") >= moment(req.query.firstDate, "YYYY-MM-DD") && moment(`${x.year}-${x.month}-${x.date}`, "YYYY-MM-DD") <= moment(req.query.endDate, "YYYY-MM-DD"));
       } else if (req.query.schedule === "true") {
         let history = await tblHistoryPT.sequelize.query(
-          "SELECT member.nickname AS `Member`,tblUser.fullname AS `PT`,tblClassPt.time,tblClassPt.date,tblClassPt.week,tblClassPt.month,tblClassPt.year FROM `tblHistoryPT`  INNER JOIN tblUser AS `member` ON tblHistoryPT.userId = member.userId LEFT OUTER JOIN tblClassPt ON tblHistoryPT.classPtId = tblClassPt.classPtId LEFT OUTER JOIN tblUser on tblClassPt.ptId = tblUser.userId",
+          "SELECT member.nickname AS `Member`,tblUsers.fullname AS `PT`,tblClassPts.time,tblClassPts.date,tblClassPts.week,tblClassPts.month,tblClassPts.year FROM `tblHistoryPTs`  INNER JOIN tblUsers AS `member` ON tblHistoryPTs.userId = member.userId LEFT OUTER JOIN tblClassPts ON tblHistoryPTs.classPtId = tblClassPts.classPtId LEFT OUTER JOIN tblUsers on tblClassPts.ptId = tblUsers.userId",
           {
             raw: true,
             type: QueryTypes.SELECT,

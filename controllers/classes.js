@@ -247,10 +247,11 @@ class classesController {
       let { memberId, activeExpired } = await tblMember.findOne({
         where: { userId: req.user.userId },
       });
-      if (activeExpired >= createDateAsUTC(new Date())) {
+      
+      if (createDateAsUTC(new Date(activeExpired)) >= createDateAsUTC(new Date())) {
         let data = await tblClasses.findByPk(req.params.id, { include: tblHistoryClasses });
 
-        if (data.tblHistoryClasses?.length > 0 && data.limit >= data.tblHistoryClasses?.length) throw { name: "slotFull" };
+        if (data.tblHistoryClasses.length > 0 && data.limit <= data.tblHistoryClasses.length) throw { name: "slotFull" };
 
         let dataMemberClass = await tblMemberClasses.findOne({
           where: {
