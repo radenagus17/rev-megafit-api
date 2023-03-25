@@ -12,7 +12,7 @@ const {
   tblRevenue,
   tblCategoryMembership,
   tblMemberClasses,
-  tblClasses
+  tblPackageClasses
 } = require("../models");
 
 const { compare, hashPass } = require("../helpers/bcrypt");
@@ -52,15 +52,15 @@ class usersController {
       const theRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*[0-9])(?=.{8,}).*$/g;
       const result = theRegex.test(password)
       if (!userLogin) throw { name: "unauthorized" };
-      if(!result) res.status(403).json({
+      const pass = compare(password, userLogin.password);
+      if (!pass) throw { name: "unauthorized" };
+      if(!result) res.status(200).json({
         success: false,
         error: "At least 8 characters, min 1 Uppercase 1 Lowercase 1 Number 1",
         changePass: true,
         userId: userLogin.userId,
         password_lama: password
       })
-      const pass = compare(password, userLogin.password);
-      if (!pass) throw { name: "unauthorized" };
       const token = sign({ userId: userLogin.userId, email: userLogin.email });
 
       res.status(200).json({
@@ -152,7 +152,7 @@ class usersController {
         let createStaff, updateStaff;
 
         let newStaff = {
-          userId: createUser.null,
+          userId: createUser.userId,
           isPermanent: isPermanent ? isPermanent : true,
           available: available ? available : true,
           NIK,
@@ -163,7 +163,7 @@ class usersController {
 
         if (createUser) createStaff = await tblStaff.create(newStaff);
 
-        let nameImageCard = createStaff.null;
+        let nameImageCard = createStaff.staffId;
         await QRCode.toFile(`./qr/${nameImageCard}.png`, `${nameImageCard}`, {
           color: {
             dark: "#000",
@@ -843,7 +843,7 @@ class usersController {
             { model: tblStaff, as: "staff" },
             {
               model: tblMember,
-              include: [{ model: tblDataSizeMember }, { model: tblStaff, include: [{ model: tblUser, as: "staff" }] }, { model: tblTaskPT }, {model: tblFoodTracking}, {model: tblClasses}],
+              include: [{ model: tblDataSizeMember }, { model: tblStaff, include: [{ model: tblUser, as: "staff" }] }, { model: tblTaskPT }, {model: tblFoodTracking}, { model: tblPackageClasses }],
             },
             { model: tblCheckinCheckouts, as: "member" },
           ],
@@ -1799,7 +1799,7 @@ class usersController {
         // Change password
         if (compare(req.body.passwordLama, req.user.password)) {
           newData = {
-            password: hash(req.body.passwordBaru),
+            password: hashPass(req.body.passwordBaru),
           };
 
           exeUpdate = await tblUser.update(newData, {
@@ -1849,6 +1849,10 @@ class usersController {
         };
 
         exeUpdate = await tblDataSizeMember.create(newData);
+      } else if (req.query["update-staff"] === "true") {
+        exeUpdate = await tblStaff.update({available: req.body.available}, {
+          where: { userId: req.params.id }
+        })
       } else {
         let newUserData = {
           username: req.body.username,
@@ -1870,7 +1874,7 @@ class usersController {
         } else if (Number(req.body.phone.slice(0, 2)) === 62) {
           newUserData.phone = req.body.phone;
         }
-        if (req.body.password) newUserData.password = hash(req.body.password);
+        if (req.body.password) newUserData.password = hashPass(req.body.password);
         exeUpdate = await tblUser.update(newUserData, {
           where: { userId: req.params.id },
         });

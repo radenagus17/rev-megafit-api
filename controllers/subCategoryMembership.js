@@ -30,6 +30,7 @@ class subCategoryMembership {
         price: req.body.price,
         activeMember: 0,
         times: req.body.times,
+        classUsed: req.body.classUsed
       };
       if (Number(req.body.categoryMembershipId) === 2 || Number(req.body.categoryMembershipId) === 5) newPackageMembership.sessionPtHours = req.body.sessionPtHours;
 
@@ -167,6 +168,7 @@ class subCategoryMembership {
         subCategoryMembershipId: req.params.id,
         price: req.body.price,
         times: req.body.times,
+        classUsed: req.body.classUsed
       };
       if (Number(req.body.categoryMembershipId) === 2 || Number(req.body.categoryMembershipId) === 5) newPackageMembership.sessionPtHours = req.body.sessionPtHours;
 

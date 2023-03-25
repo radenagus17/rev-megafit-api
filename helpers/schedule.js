@@ -4,7 +4,8 @@ const { createDateAsUTC } = require("./convertDate");
 const { sendEmailRememberMembership } = require("./nodemailer");
 const { QueryTypes } = require("sequelize");
 const moment = require("moment");
-const { tblCheckinCheckouts, tblTransaction, tblMember, tblPackageMemberships, tblSubCategoryMembership, tblUser, tblRevenue, tblCancelReservation } = require("../models");
+const { tblCheckinCheckouts, tblTransaction, tblMember, tblPackageMemberships, tblSubCategoryMembership, tblUser, tblRevenue, tblCancelReservation, tblHistoryRemain, tblClassPt, tblHistoryPT, tblPackageClasses, tblClasses } = require("../models");
+const { getWeek } = require("../helpers/getNumberOfWeek")
 
 async function rescheduleCRON() {
   await handleReservation();
@@ -15,6 +16,8 @@ async function rescheduleCRON() {
   await handleDeklarasiKesehatan();
   await handleMemberBelumAktif();
   await handleKreditMember();
+  await handleScorchedPTMember();
+  await handleScorchedPackageClass()
   // await handleCashlez();
   // await handleCancelCashlez();
   // await handleCekDuplicateRevenue();
@@ -711,10 +714,10 @@ async function handleDeklarasiKesehatan() {
 //===================== PERPANJANG MEMBERSHIP APABILA MEMBER BELUM AKTIF ===============
 async function handleMemberBelumAktif() {
   try {
-    schedule.scheduleJob("* 1 * * *", async function () {
+    schedule.scheduleJob("0 1 * * *", async function () {
       let data = await tblMember.findAll({
         where: {
-          [Op.and]: [{ activeDate: null }, { activeExpired: { [Op.not]: null } }],
+          [Op.and]: [{ activeDate: null }, { activeExpired: { [Op.not]: null } }, { packageMembershipId: { [Op.not]: null } }],
         },
         include: { model: tblPackageMemberships, as: "packageMembership" },
       });
@@ -722,8 +725,9 @@ async function handleMemberBelumAktif() {
       await data.forEach(async (el) => {
         let memberActiveExpired = new Date(el.activeExpired);
         let updateActiveExpired = createDateAsUTC(new Date(new Date().getFullYear(), new Date().getMonth(), new Date().getDate() + el.packageMembership.times));
+        let updateExcitingActiveExpired = createDateAsUTC(new Date(new Date(el.activeExpired).getFullYear(), new Date(el.activeExpired).getMonth(), new Date(el.activeExpired).getDate() + 1));
         let success = await tblMember.update(
-          { activeExpired: updateActiveExpired },
+          { activeExpired: el.activeExpired && el.isFreeze ? updateExcitingActiveExpired : updateActiveExpired },
           {
             where: { memberId: el.memberId },
           }
@@ -751,7 +755,8 @@ async function handleMemberBelumAktif() {
                 ? createDateAsUTC(new Date(new Date().getFullYear(), new Date().getMonth(), new Date().getDate()))
                 : createDateAsUTC(new Date(new Date(activeMembershipExpiredBefore).getFullYear(), new Date(activeMembershipExpiredBefore).getMonth(), new Date(activeMembershipExpiredBefore).getDate())),
             activeMembershipExpired:
-              moment(x.dateActiveMembership).format("YYYY-MM-DD") <= moment().format("YYYY-MM-DD")
+              x.activeMembershipExpired && x.kredit ? createDateAsUTC(new Date(new Date(x.activeMembershipExpired).getFullYear(), new Date(x.activeMembershipExpired).getMonth(), new Date(x.activeMembershipExpired).getDate() + 1))
+                : moment(x.dateActiveMembership).format("YYYY-MM-DD") <= moment().format("YYYY-MM-DD")
                 ? createDateAsUTC(new Date(new Date().getFullYear(), new Date().getMonth(), new Date().getDate() + x.times))
                 : createDateAsUTC(new Date(new Date(activeMembershipExpiredBefore).getFullYear(), new Date(activeMembershipExpiredBefore).getMonth(), new Date(activeMembershipExpiredBefore).getDate() + x.times)),
           };
@@ -843,6 +848,137 @@ async function handleKreditMember() {
   }
 }
 //===================== PERPANJANG MEMBERSHIP APABILA MEMBER BELUM AKTIF (END) ===============
+
+//===================== HANGUSKAN PT MEMBERS APABILA MEMBER TIDAK PERPANJANG MEMBERSHIPS ===============
+async function handleScorchedPTMember() {
+  try {
+    schedule.scheduleJob("* * * * *", async function() {
+      let data = await tblMember.findAll({
+        where: {
+          [Op.and]: [{ ptSession: { [Op.gt]: 0 } }, { activeExpired: { [Op.lte]: createDateAsUTC(new Date()) } }, { isFreeze: { [Op.not]: true } }, { isLeave: { [Op.not]: true } }],
+        },
+      });
+
+      const pastDate = moment(new Date()).subtract(5, "days").format("YYYY-MM-DD")
+      const pastMonth = createDateAsUTC(new Date(new Date(pastDate).getFullYear(), new Date(pastDate).getMonth() - 1, new Date(pastDate).getDate()))
+
+      const buildClassPt = await tblClassPt.create({
+        ptId: 2, time: "10:00:00", date: new Date(pastDate).getDate(), week: getWeek(moment(pastMonth).format("YYYY-MM-DD")), month: new Date().getMonth(), year: new Date().getFullYear(), isOnline: false
+      })
+
+      await data.forEach(async (el) => {
+          await tblHistoryRemain.create(
+            { memberId: el.memberId, sisaPT: el.ptSession, expiredDate: el.activeExpired }
+          );
+        
+        let revenue = await tblRevenue.findAll({
+          where: {
+            [Op.and]: [{ memberId: el.memberId }, { packagePT: { [Op.not]: null } }, { isDone: { [Op.not]: true } }],
+          },
+          order: [["id", "ASC"]],
+        });
+       
+        if (revenue.length) {
+          let promises = [];
+            await revenue.forEach((x) => {
+              const ifSeasonMoreThanRev01 = el.ptSession + revenue[0].PTTerpakai
+              if(ifSeasonMoreThanRev01 != revenue[0].timesPT){
+                let update = {
+                  dateActivePT: x.dateActivePT ?? createDateAsUTC(new Date(`${buildClassPt. year}-${buildClassPt.month}-${buildClassPt.date}`)),
+                  PTTerpakai: x.timesPT,
+                  isDone: true,
+                  activePtExpired: createDateAsUTC(new Date(`${buildClassPt.year}-${buildClassPt.month}-${buildClassPt.date}`))
+                };
+                promises.push(tblRevenue.update(update, { where: { id: x.id } }));
+              }else{
+                let update = {
+                    dateActivePT: revenue[0].dateActivePT ?? createDateAsUTC(new Date(`${buildClassPt. year}-${buildClassPt.month}-${buildClassPt.date}`)),
+                    PTTerpakai: revenue[0].timesPT,
+                    isDone: true,
+                    activePtExpired: createDateAsUTC(new Date(`${buildClassPt.year}-${buildClassPt.month}-${buildClassPt.date}`))
+                  };
+                  promises.push(tblRevenue.update(update, { where: { id: revenue[0].id } }));
+              }
+            });
+            
+            for (let i = 0; i < el.ptSession; i++) {
+              let createData = {
+                  userId: el.userId, classPtId: buildClassPt.classPtId, revenueId:revenue[0].id
+                }
+                promises.push(tblHistoryPT.create(createData));
+            }
+          
+
+          if (promises.length) await Promise.all(promises);
+          console.log("ptSession membership member telah dihanguskan.");
+        }
+        
+      })
+      // console.log(data[0].tblRevenues.length, "<------ hallo world ------>")
+      if(data.length){
+        await data.forEach(async (el) => {
+          await tblMember.update(
+            { ptSession: 0 }, { where: { memberId: el.memberId } }
+          );
+        })
+      }
+    
+    })
+  } catch (error) {
+    console.log(error)
+  }
+}
+//===================== HANGUSKAN PT MEMBERS APABILA MEMBER TIDAK PERPANJANG MEMBERSHIPS (END) ===============
+
+//===================== HANGUSKAN PACKAGE CLASS APABILA MEMBER TIDAK PERPANJANG MEMBERSHIPS DAN PACKAGE CLASS EXPIRED ===============
+async function handleScorchedPackageClass() {
+  try {
+    schedule.scheduleJob("0 0 * * *", async function() {
+      let packageClass = await tblPackageClasses.findAll({
+        where: {
+          classSession: { [Op.ne]: 0 }
+        }, include: [{ model: tblMember }, { model: tblSubCategoryMembership }],
+      });
+        
+        await packageClass.forEach(async (el) => {
+          if(createDateAsUTC(new Date(el.tblMember.activeExpired)) <= createDateAsUTC(new Date()) || createDateAsUTC(new Date(el.expiredDate)) <= createDateAsUTC(new Date())){
+            if(el.tblSubCategoryMembership.isPremium) {
+              await tblHistoryRemain.create(
+                { memberId: el.memberId, sisaKelasPremium: el.classSession, idClass: el.subCategoryMembershipId, expiredDate: el.expiredDate }
+              );
+            
+              let revenue = await tblRevenue.findAll({
+                where: {
+                  [Op.and]: [{ memberId: el.memberId }, { packageBefore: el.tblSubCategoryMembership.subCategoryMembership }, { status: { [Op.not]: "CLOSED" } }, { packageAfter: { [Op.is]: null } }, { debit: { [Op.is]: null } }],
+                }, order: [["id", "ASC"]],
+              });
+              
+              let promises = [];
+              await revenue.forEach((x) => {
+                let update = {
+                  status: "CLOSED",
+                  kredit: x.times
+                };
+              promises.push(tblRevenue.update(update, { where: { id: x.id } }));
+              });
+              await Promise.all(promises);
+            } else await tblHistoryRemain.create({ memberId: el.memberId, sisaKelasBasic: el.classSession, idClass: el.subCategoryMembershipId, expiredDate: el.expiredDate });
+          }    
+        })
+
+        await packageClass.forEach(async (el) => {
+          if(createDateAsUTC(new Date(el.tblMember.activeExpired)) <= createDateAsUTC(new Date()) || createDateAsUTC(new Date(el.expiredDate)) <= createDateAsUTC(new Date())){
+            await tblPackageClasses.destroy({ where: { id: el.id }})
+          }
+        })
+
+    })
+  } catch (error) {
+    console.log(error)
+  }
+}
+//===================== HANGUSKAN PACKAGE CLASS APABILA MEMBER TIDAK PERPANJANG MEMBERSHIPS DAN PACKAGE CLASS EXPIRED (END) ===============
+
 
 function handleGetDate(args) {
   const months = ["Januari", "Februari", "Maret", "April", "Mei", "Juni", "Juli", "Agustus", "September", "Oktober", "November", "Desember"];

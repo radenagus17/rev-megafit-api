@@ -30,6 +30,7 @@ module.exports = (sequelize, DataTypes) => {
       price: DataTypes.INTEGER,
       activeMember: DataTypes.INTEGER,
       sessionPtHours: DataTypes.INTEGER,
+      classUsed: DataTypes.INTEGER,
     },
     {
       sequelize,

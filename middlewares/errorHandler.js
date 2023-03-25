@@ -33,13 +33,10 @@ function errorHandler(err, req, res, next) {
       status = 403;
       errMessage = "Slot Full";
       break;
-    // case "pass_unique":
-    //   status = 403;
-    //   errMessage = "At least 8 characters, min 1 Uppercase 1 Lowercase 1 Number 1";
-    //   changePass = true;
-    //   userId = req.body.userId;
-    //   password_lama = req.body.password
-    //   break;
+    case "memberExp":
+      status = 403;
+      errMessage = "Member Expired, Please Top Up First";
+      break;
     case "nullPG":
       status = 403;
       errMessage = "Tidak Memiliki Sesi Private Gym";
@@ -59,6 +56,10 @@ function errorHandler(err, req, res, next) {
     case "phoneFound":
       status = 409;
       errMessage = "Phone is already used by other users";
+      break;
+    case "notAlreadyClass":
+      status = 409;
+      errMessage = "This class is not yet available, check the date";
       break;
     default:
       status = 500;

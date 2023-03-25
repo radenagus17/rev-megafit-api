@@ -19,7 +19,7 @@ class checkinController {
           }
           let newUserCheckin = {
             userId: req.user.userId,
-            date: req.body.reservationDate ? req.body.reservationDate : createDateAsUTC(new Date()),
+            date: createDateAsUTC(new Date(req.body.reservationDate)) ?? createDateAsUTC(new Date()),
             isReservation: 1,
           };
           if (new Date(req.body.reservationDate).getDate() === new Date().getDate() && new Date(req.body.reservationDate).getMonth() === new Date().getMonth()) {
@@ -108,7 +108,7 @@ class checkinController {
               lockerKey: req.body.lockerKey,
               noBottle: req.body.noBottle,
               checkinTime: createDateAsUTC(new Date()),
-              date: createDateAsUTC(new Date()),
+              date: moment().utc().format("YYYY-MM-DD"),
             };
 
             userCheckin = await tblCheckinCheckouts.create(newUserCheckin);

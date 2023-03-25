@@ -1,4 +1,4 @@
-const { tblUser, tblMember, tblPackageMemberships, tblSubCategoryMembership, tblTransaction, tblOrderList, tblStaff, tblRevenue, tblTempRevenue, tblClasses } = require("../models");
+const { tblUser, tblMember, tblPackageMemberships, tblSubCategoryMembership, tblTransaction, tblOrderList, tblStaff, tblRevenue, tblTempRevenue, tblClasses, tblPackageClasses } = require("../models");
 const Op = require("sequelize").Op;
 const { createDateAsUTC } = require("../helpers/convertDate");
 const { rememberExtendPackage } = require("../helpers/schedule");
@@ -358,7 +358,7 @@ class TransactionController {
         }
 
         // UPDATE DATA SETELAH PEMBAYARAN
-        if (paketMember || paketPT || paketLeave || paketPG || paketKelas) {
+        if (paketMember || paketPT || paketLeave || paketPG) {
           revenueData.pricePT = paketPT && paketPT.tblPackageMembership.price;
           revenueData.packagePT = paketPT && paketPT.tblPackageMembership.packageMembershipId;
           revenueData.timesPT = paketPT && paketPT.tblPackageMembership.times;
@@ -367,11 +367,33 @@ class TransactionController {
           data.sisaLastPTSession = paketPT && member.ptSession;
           data.leaveStatus = paketLeave && "PAID";
           data.PG_Session = paketPG && !member.PG_Session ? 1 : member.PG_Session + 1;
-          data.classId = paketKelas.tblPackageMembership.packageMembershipId
           await tblMember.update(data, {
             where: { memberId: member.memberId },
           });
           await tblRevenue.create(revenueData);
+        }
+
+        // for classPackage checkout
+        if (paketKelas) {
+          let classPackage = await tblPackageClasses.create({
+            expiredDate: createDateAsUTC(new Date(new Date().getFullYear(), new Date().getMonth(), new Date().getDate() + ((paketKelas.tblPackageMembership.times) || 0))
+          ),
+          memberId: member.memberId,
+          subCategoryMembershipId: paketKelas.tblPackageMembership.subCategoryMembershipId,
+          classSession: paketKelas.tblPackageMembership.classUsed,
+          activeDate: createDateAsUTC(new Date())
+          });
+          await tblRevenue.create({
+          memberId: req.body.memberId,
+          keterangan: salesInvoice,
+          dateActiveMembership: createDateAsUTC(new Date()),
+          activeMembershipExpired: classPackage.expiredDate,
+          status: "OPEN",
+          packageBefore: paketKelas.tblPackageMembership.package,
+          times: paketKelas.tblPackageMembership.classUsed,
+          kredit: 0,
+          price: paketKelas.tblPackageMembership.price
+          });
         }
       }
 

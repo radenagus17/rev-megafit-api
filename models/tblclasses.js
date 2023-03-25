@@ -12,12 +12,15 @@ module.exports = (sequelize, DataTypes) => {
       tblClasses.belongsTo(models.tblSubCategoryMembership, { foreignKey: "subCategoryMembershipId" });
       tblClasses.belongsTo(models.tblUser, { foreignKey: "ptId" });
       tblClasses.hasMany(models.tblHistoryClasses, { foreignKey: "classId" });
-      tblClasses.hasMany(models.tblMember, { foreignKey: "classId" });
+      // tblClasses.hasMany(models.tblMember, { foreignKey: "classId" });
     }
   }
   tblClasses.init(
     {
-      ptId: DataTypes.INTEGER,
+      ptId: {
+        type: DataTypes.INTEGER,
+        unique: false
+      },
       timeIn: DataTypes.TIME,
       timeOut: DataTypes.TIME,
       date: DataTypes.INTEGER,

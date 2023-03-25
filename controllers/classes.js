@@ -1,6 +1,8 @@
-const { tblClasses, tblUser, tblHistoryClasses, tblSubCategoryMembership, tblMemberClasses, tblMember } = require("../models");
+const { tblClasses, tblUser, tblHistoryClasses, tblSubCategoryMembership, tblMemberClasses, tblMember, tblPackageClasses, tblRevenue, tblPackageMemberships } = require("../models");
 const { log } = require("../helpers/log");
 const { createDateAsUTC } = require("../helpers/convertDate");
+const Op = require("sequelize").Op;
+const moment = require("moment");
 
 class classesController {
   static async create(req, res, next) {
@@ -67,7 +69,9 @@ class classesController {
             year: req.query.year,
           },
           include: [
-            { model: tblSubCategoryMembership },
+            { model: tblSubCategoryMembership,
+              include: [{ model: tblPackageClasses }]
+            },
             { model: tblUser },
             {
               model: tblHistoryClasses,
@@ -241,16 +245,51 @@ class classesController {
     }
   }
 
-  //   todo: for member
+  //todo: for member
   static async joinClass(req, res, next) {
     try {
       let { memberId, activeExpired } = await tblMember.findOne({
         where: { userId: req.user.userId },
       });
       
+      let dataClasses = await tblClasses.findByPk(req.params.id, { 
+        include: { model: tblSubCategoryMembership,
+                   include: { model: tblPackageMemberships }
+                 }
+       })
+       
+       if(dataClasses.date !== new Date().getDate() || dataClasses.month !== new Date().getMonth() + 1 || dataClasses.year !== new Date().getFullYear() || !dataClasses) throw { name: "notAlreadyClass" }
+
+       //? first time member join class basic
+       if (!dataClasses.tblSubCategoryMembership.isPremium) {
+        const checkBasic = await tblPackageClasses.findAll({
+          where: {
+            [Op.and]: [{ memberId }, { classSession: { [Op.ne]: 0 } }, { subCategoryMembershipId: dataClasses.tblSubCategoryMembership.id }],
+           },
+           order: [["id", "ASC"]],
+        })
+          if((!checkBasic.length && !dataClasses.tblSubCategoryMembership.isPremium) || (!checkBasic[0].classSession && undefined))
+            await tblPackageClasses.create({
+             memberId, subCategoryMembershipId: dataClasses.subCategoryMembershipId, activeDate: createDateAsUTC(new Date()), expiredDate: activeExpired, classSession: dataClasses.tblSubCategoryMembership.tblPackageMemberships[0].classUsed
+            })
+       }
+       
+       let checkPackageClasses = await tblPackageClasses.findAll({
+         where: {
+           [Op.and]: [{ memberId }, { classSession: { [Op.ne]: 0 } }, { expiredDate: { [Op.gte]: moment().format("YYYY-MM-DD") } }, { subCategoryMembershipId: dataClasses.tblSubCategoryMembership.id }],
+          },
+          order: [["id", "ASC"]],
+        })
+
+
+      let revenue = await tblRevenue.findAll({
+        where: {
+          [Op.and]: [{ memberId }, { activeMembershipExpired: { [Op.gte]: moment().format("YYYY-MM-DD") } }, { packageBefore: dataClasses.tblSubCategoryMembership.tblPackageMemberships[0].package }, { kredit: { [Op.ne]: dataClasses.tblSubCategoryMembership.tblPackageMemberships[0].classUsed }}, { status: { [Op.ne]: "CLOSED" } }]
+        }
+      })
+
       if (createDateAsUTC(new Date(activeExpired)) >= createDateAsUTC(new Date())) {
         let data = await tblClasses.findByPk(req.params.id, { include: tblHistoryClasses });
-
         if (data.tblHistoryClasses.length > 0 && data.limit <= data.tblHistoryClasses.length) throw { name: "slotFull" };
 
         let dataMemberClass = await tblMemberClasses.findOne({
@@ -267,8 +306,28 @@ class classesController {
             await tblMemberClasses.destroy({ where: { id: dataMemberClass.id } });
           }
         }
+      }else throw { name: "memberExp" }
+      
+      if (!checkPackageClasses.length) throw { name: "memberExp" }
+      await tblPackageClasses.update({
+        classSession: checkPackageClasses[0].classSession - 1
+      }, { where: { id: checkPackageClasses[0].id } } )
+    
+      if(revenue.length){
+        await tblRevenue.update({
+          status: revenue[0].kredit + 1 === revenue[0].times ? "CLOSED" : "OPEN",
+          kredit: revenue[0].kredit + 1
+        }, { where: { id: revenue[0].id }})
       }
-      // tblMemberClasses
+      
+      const returningPackageClasses = await tblPackageClasses.findOne({
+        where: {
+          [Op.and]: [{memberId}, { expiredDate: new Date(checkPackageClasses[0].expiredDate) }, { subCategoryMembershipId: dataClasses.tblSubCategoryMembership.id }]
+        },
+      })
+
+      if(returningPackageClasses.classSession === 0) await tblPackageClasses.destroy({ where: { id: returningPackageClasses.id } });
+
       let newData = {
         userId: req.user.userId,
         classId: req.params.id,
@@ -289,7 +348,12 @@ class classesController {
         where: { userId: req.user.userId },
       });
 
-      let data = await tblClasses.findByPk(req.query.class, { include: tblHistoryClasses });
+      let data = await tblClasses.findByPk(req.query.class, { include: [{
+        model: tblSubCategoryMembership,
+        include: { model: tblPackageMemberships }
+      }, { model: tblHistoryClasses } ] });
+
+      if(!data.tblHistoryClasses.length || data.tblHistoryClasses[0].id !== +req.params.id) throw { name: "notAlreadyClass" }
 
       let dataMemberClass = await tblMemberClasses.findOne({
         where: {
@@ -298,6 +362,21 @@ class classesController {
         },
       });
 
+      let checkPackageClasses = await tblPackageClasses.findAll({
+        where: {
+          [Op.and]: [{ memberId }, { classSession: { [Op.gte]: 0 } }, { expiredDate: { [Op.gte]: moment().format("YYYY-MM-DD") } }, { subCategoryMembershipId: data.subCategoryMembershipId }],
+        },
+        order: [["id", "ASC"]],
+      })
+      
+      if (!checkPackageClasses.length) throw { name: "memberExp" }
+      
+      let revenue = await tblRevenue.findAll({
+        where: {
+          [Op.and]: [{ memberId }, { activeMembershipExpired: { [Op.gte]: moment().format("YYYY-MM-DD") } }, { packageBefore: data.tblSubCategoryMembership.tblPackageMemberships[0].package }, { kredit: { [Op.lte]: data.tblSubCategoryMembership.tblPackageMemberships[0].classUsed }}]
+        }
+      })
+
       if (dataMemberClass) {
         await tblMemberClasses.update({ times: dataMemberClass.times + 1 }, { where: { id: dataMemberClass.id } });
       } else {
@@ -305,8 +384,20 @@ class classesController {
           memberId,
           subCategoryMembershipId: data.subCategoryMembershipId,
           times: 1,
+          expired: checkPackageClasses[0].expiredDate
         };
         await tblMemberClasses.create(newData);
+      }
+
+      await tblPackageClasses.update({
+        classSession: checkPackageClasses[0].classSession + 1
+      }, { where: { id: checkPackageClasses[0].id } } )
+
+      if(revenue.length){
+        await tblRevenue.update({
+          status: revenue[0].kredit === revenue[0].times ? "OPEN" : "OPEN",
+          kredit: revenue[0].kredit - 1
+        }, { where: { id: revenue[0].id }})
       }
 
       await tblHistoryClasses.destroy({ where: { id: req.params.id } });

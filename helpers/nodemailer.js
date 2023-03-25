@@ -1,8 +1,8 @@
 const url = require("url");
 const nodemailer = require("nodemailer");
 
-const baseUrlServer = "http://209.97.175.174:3000";
-const baseUrlClient = "http://megafit.co.id";
+const baseUrlServer = "http://api-megafit.daffaakbar.com";
+const baseUrlClient = "http://megafitnext.daffaakbar.com";
 
 let transporter = nodemailer.createTransport({
   host: "mail.megafit.co.id",
