@@ -852,7 +852,7 @@ async function handleKreditMember() {
 //===================== HANGUSKAN PT MEMBERS APABILA MEMBER TIDAK PERPANJANG MEMBERSHIPS ===============
 async function handleScorchedPTMember() {
   try {
-    schedule.scheduleJob("* * * * *", async function() {
+    schedule.scheduleJob("0 0 5 * *", async function() {
       let data = await tblMember.findAll({
         where: {
           [Op.and]: [{ ptSession: { [Op.gt]: 0 } }, { activeExpired: { [Op.lte]: createDateAsUTC(new Date()) } }, { isFreeze: { [Op.not]: true } }, { isLeave: { [Op.not]: true } }],
