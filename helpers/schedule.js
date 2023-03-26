@@ -2,9 +2,8 @@ const schedule = require("node-schedule");
 const Op = require("sequelize").Op;
 const { createDateAsUTC } = require("./convertDate");
 const { sendEmailRememberMembership } = require("./nodemailer");
-const { QueryTypes } = require("sequelize");
 const moment = require("moment");
-const { tblCheckinCheckouts, tblTransaction, tblMember, tblPackageMemberships, tblSubCategoryMembership, tblUser, tblRevenue, tblCancelReservation, tblHistoryRemain, tblClassPt, tblHistoryPT, tblPackageClasses, tblClasses } = require("../models");
+const { tblCheckinCheckouts, tblTransaction, tblMember, tblPackageMemberships, tblSubCategoryMembership, tblUser, tblRevenue, tblCancelReservation, tblHistoryRemain, tblClassPt, tblHistoryPT, tblPackageClasses } = require("../models");
 const { getWeek } = require("../helpers/getNumberOfWeek")
 
 async function rescheduleCRON() {
@@ -879,10 +878,16 @@ async function handleScorchedPTMember() {
         });
        
         if (revenue.length) {
+          
           let promises = [];
+          let calcRev1st = revenue[0].timesPT - revenue[0].PTTerpakai;
+          let ptSessionFirst = el.ptSession - calcRev1st;
+          let flag = false;
             await revenue.forEach((x) => {
-              const ifSeasonMoreThanRev01 = el.ptSession + revenue[0].PTTerpakai
-              if(ifSeasonMoreThanRev01 != revenue[0].timesPT){
+              const ifSeasonMoreThanRev01 = el.ptSession + revenue[0].PTTerpakai;
+              
+              if(ifSeasonMoreThanRev01 > revenue[0].timesPT){ 
+                flag = revenue.length > 2 ? true : false      
                 let update = {
                   dateActivePT: x.dateActivePT ?? createDateAsUTC(new Date(`${buildClassPt. year}-${buildClassPt.month}-${buildClassPt.date}`)),
                   PTTerpakai: x.timesPT,
@@ -901,13 +906,47 @@ async function handleScorchedPTMember() {
               }
             });
             
-            for (let i = 0; i < el.ptSession; i++) {
-              let createData = {
-                  userId: el.userId, classPtId: buildClassPt.classPtId, revenueId:revenue[0].id
+            if(ptSessionFirst > 0 && !flag) {
+              for (let i = 0; i < revenue[1].timesPT; i++) {
+                let createData = {
+                  userId: el.userId, classPtId: buildClassPt.classPtId, revenueId:revenue[1].id
                 }
                 promises.push(tblHistoryPT.create(createData));
+              }
+              for (let i = 0; i < calcRev1st; i++) {
+                let createData = {
+                    userId: el.userId, classPtId: buildClassPt.classPtId, revenueId:revenue[0].id
+                  }
+                  promises.push(tblHistoryPT.create(createData));
+              }
+            } else if(ptSessionFirst > 0 && flag) {
+              for (let i = 0; i < revenue[1].timesPT; i++) {
+                let createData = {
+                  userId: el.userId, classPtId: buildClassPt.classPtId, revenueId:revenue[1].id
+                }
+                promises.push(tblHistoryPT.create(createData));
+              }
+              for (let i = 0; i < calcRev1st; i++) {
+                let createData = {
+                    userId: el.userId, classPtId: buildClassPt.classPtId, revenueId:revenue[0].id
+                  }
+                  promises.push(tblHistoryPT.create(createData));
+              }
+              for (let i = 0; i < revenue[2].timesPT; i++) {
+                let createData = {
+                    userId: el.userId, classPtId: buildClassPt.classPtId, revenueId:revenue[2].id
+                  }
+                  promises.push(tblHistoryPT.create(createData));
+              }
+              if(revenue[3]) console.log("<--------- hallo wordl ---------->")
+            } else {
+              for (let i = 0; i < el.ptSession; i++) {
+                let createData = {
+                    userId: el.userId, classPtId: buildClassPt.classPtId, revenueId:revenue[0].id
+                  }
+                  promises.push(tblHistoryPT.create(createData));
+              }
             }
-          
 
           if (promises.length) await Promise.all(promises);
           console.log("ptSession membership member telah dihanguskan.");
