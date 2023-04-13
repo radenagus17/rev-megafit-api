@@ -4,6 +4,7 @@ const { createDateAsUTC } = require("../helpers/convertDate");
 
 const authentication = async (req, res, next) => {
   try {
+    if (!req.headers.token) throw { name: "MissingAccessToken" };
     let decoded = verify(req.headers.token);
     const userFound = await tblUser.findByPk(decoded.userId);
     if (!userFound) throw { name: "unauthorized" };

@@ -12,7 +12,7 @@ async function rescheduleCRON() {
   await handleInactiveLeave();
   await handleTransactionExpired();
   await handleRememberPackage();
-  await handleDeklarasiKesehatan();
+  // await handleDeklarasiKesehatan();
   await handleMemberBelumAktif();
   await handleKreditMember();
   await handleScorchedPTMember();
@@ -510,204 +510,204 @@ async function handleTransactionExpired() {
 // ======================   TRANSACTION (END)   ======================
 
 // ======================  FORMULIR DEKLARASI KESEHATAN (START)  ======================
-async function handleDeklarasiKesehatan() {
-  try {
-    schedule.scheduleJob("* * * * *", async function () {
-      let date = new Date().getDate() < 10 ? `0${new Date().getDate()}` : new Date().getDate();
-      let month = new Date().getMonth() + 1 < 10 ? `0${new Date().getMonth() + 1}` : new Date().getMonth() + 1;
-      let hour = new Date().getHours();
-      let minute = new Date().getMinutes();
+// async function handleDeklarasiKesehatan() {
+//   try {
+//     schedule.scheduleJob("* * * * *", async function () {
+//       let date = new Date().getDate() < 10 ? `0${new Date().getDate()}` : new Date().getDate();
+//       let month = new Date().getMonth() + 1 < 10 ? `0${new Date().getMonth() + 1}` : new Date().getMonth() + 1;
+//       let hour = new Date().getHours();
+//       let minute = new Date().getMinutes();
 
-      let member = await tblMember.findAll({
-        where: { healthExpiredAt: { [Op.lte]: createDateAsUTC(new Date()) } },
-      });
+//       let member = await tblMember.findAll({
+//         where: { healthExpiredAt: { [Op.lte]: createDateAsUTC(new Date()) } },
+//       });
 
-      if (member.length) {
-        let promises = [];
-        member.forEach(async (x) => {
-          let data = {
-            isHealthy: null,
-            healthExpiredAt: null,
-          };
+//       if (member.length) {
+//         let promises = [];
+//         member.forEach(async (x) => {
+//           let data = {
+//             isHealthy: null,
+//             healthExpiredAt: null,
+//           };
 
-          if (x.isFreeze) {
-            data.isFreeze = null;
-            data.freezeDate = null;
-            data.unfreezeDate = createDateAsUTC(new Date());
+//           if (x.isFreeze) {
+//             data.isFreeze = null;
+//             data.freezeDate = null;
+//             data.unfreezeDate = createDateAsUTC(new Date());
 
-            let revenueData;
-            let cutiRevenue;
+//             let revenueData;
+//             let cutiRevenue;
 
-            if (x.isLeave) {
-              revenueData = await tblRevenue.findAll({
-                where: {
-                  [Op.and]: [
-                    {
-                      memberId: x.memberId,
-                    },
-                    {
-                      packageAfter: { [Op.not]: null },
-                    },
-                    {
-                      packageAfter: { [Op.not]: "Cuti" },
-                    },
+//             if (x.isLeave) {
+//               revenueData = await tblRevenue.findAll({
+//                 where: {
+//                   [Op.and]: [
+//                     {
+//                       memberId: x.memberId,
+//                     },
+//                     {
+//                       packageAfter: { [Op.not]: null },
+//                     },
+//                     {
+//                       packageAfter: { [Op.not]: "Cuti" },
+//                     },
 
-                    {
-                      status: "PENDING",
-                    },
-                  ],
-                },
-                order: [["activeMembershipExpired", "ASC"]],
-              });
+//                     {
+//                       status: "PENDING",
+//                     },
+//                   ],
+//                 },
+//                 order: [["activeMembershipExpired", "ASC"]],
+//               });
 
-              cutiRevenue = await tblRevenue.findOne({
-                where: {
-                  [Op.and]: [
-                    {
-                      memberId: x.memberId,
-                    },
-                    {
-                      packageAfter: "Cuti",
-                    },
-                    {
-                      pending_saldo: { [Op.not]: null },
-                    },
-                    {
-                      pending_saldo: { [Op.not]: 0 },
-                    },
-                  ],
-                },
-                order: [["activeMembershipExpired", "ASC"]],
-              });
+//               cutiRevenue = await tblRevenue.findOne({
+//                 where: {
+//                   [Op.and]: [
+//                     {
+//                       memberId: x.memberId,
+//                     },
+//                     {
+//                       packageAfter: "Cuti",
+//                     },
+//                     {
+//                       pending_saldo: { [Op.not]: null },
+//                     },
+//                     {
+//                       pending_saldo: { [Op.not]: 0 },
+//                     },
+//                   ],
+//                 },
+//                 order: [["activeMembershipExpired", "ASC"]],
+//               });
 
-              data.leaveDate = createDateAsUTC(new Date(moment().subtract(cekSisaBeku(x.freezeDate, x.leaveDate), "days").format("YYYY-MM-DD")));
-            } else {
-              revenueData = await tblRevenue.findAll({
-                where: {
-                  [Op.and]: [
-                    {
-                      memberId: x.memberId,
-                    },
-                    {
-                      packageAfter: { [Op.not]: null },
-                    },
-                    {
-                      packageAfter: { [Op.not]: "Cuti" },
-                    },
-                    {
-                      [Op.or]: [
-                        {
-                          [Op.and]: [
-                            {
-                              pending_saldo: { [Op.not]: null },
-                            },
-                            {
-                              pending_saldo: { [Op.not]: 0 },
-                            },
-                          ],
-                        },
-                        {
-                          status: "PENDING",
-                        },
-                      ],
-                    },
-                  ],
-                },
-                order: [["activeMembershipExpired", "ASC"]],
-              });
-            }
+//               data.leaveDate = createDateAsUTC(new Date(moment().subtract(cekSisaBeku(x.freezeDate, x.leaveDate), "days").format("YYYY-MM-DD")));
+//             } else {
+//               revenueData = await tblRevenue.findAll({
+//                 where: {
+//                   [Op.and]: [
+//                     {
+//                       memberId: x.memberId,
+//                     },
+//                     {
+//                       packageAfter: { [Op.not]: null },
+//                     },
+//                     {
+//                       packageAfter: { [Op.not]: "Cuti" },
+//                     },
+//                     {
+//                       [Op.or]: [
+//                         {
+//                           [Op.and]: [
+//                             {
+//                               pending_saldo: { [Op.not]: null },
+//                             },
+//                             {
+//                               pending_saldo: { [Op.not]: 0 },
+//                             },
+//                           ],
+//                         },
+//                         {
+//                           status: "PENDING",
+//                         },
+//                       ],
+//                     },
+//                   ],
+//                 },
+//                 order: [["activeMembershipExpired", "ASC"]],
+//               });
+//             }
 
-            data.activeExpired = createDateAsUTC(new Date(moment().add(cekSisaBeku(x.activeExpired, x.freezeDate), "days").format("YYYY-MM-DD")));
+//             data.activeExpired = createDateAsUTC(new Date(moment().add(cekSisaBeku(x.activeExpired, x.freezeDate), "days").format("YYYY-MM-DD")));
 
-            let updateRevenueData;
+//             let updateRevenueData;
 
-            if (cutiRevenue) {
-              let updateRevenueData = {
-                pending_saldo: 0,
-              };
+//             if (cutiRevenue) {
+//               let updateRevenueData = {
+//                 pending_saldo: 0,
+//               };
 
-              let newCutiRevenueData = {
-                ...cutiRevenue.dataValues,
-                dateActiveMembership: createDateAsUTC(new Date()),
-                activeMembershipExpired: createDateAsUTC(new Date(moment().add(cutiRevenue.pending_saldo, "days").format("YYYY-MM-DD"))),
-                debit: 0,
-                kredit: 0,
-                keterangan: cutiRevenue.keterangan.split(" ")[0] === "Terusan" ? cutiRevenue.keterangan : "Terusan" + " " + cutiRevenue.keterangan,
-                status: "OPEN",
-                dateActivePT: null,
-                activePtExpired: null,
-                packagePT: null,
-                timesPT: null,
-                PTTerpakai: null,
-                isDone: null,
-                pricePT: null,
-              };
+//               let newCutiRevenueData = {
+//                 ...cutiRevenue.dataValues,
+//                 dateActiveMembership: createDateAsUTC(new Date()),
+//                 activeMembershipExpired: createDateAsUTC(new Date(moment().add(cutiRevenue.pending_saldo, "days").format("YYYY-MM-DD"))),
+//                 debit: 0,
+//                 kredit: 0,
+//                 keterangan: cutiRevenue.keterangan.split(" ")[0] === "Terusan" ? cutiRevenue.keterangan : "Terusan" + " " + cutiRevenue.keterangan,
+//                 status: "OPEN",
+//                 dateActivePT: null,
+//                 activePtExpired: null,
+//                 packagePT: null,
+//                 timesPT: null,
+//                 PTTerpakai: null,
+//                 isDone: null,
+//                 pricePT: null,
+//               };
 
-              delete newCutiRevenueData.id;
-              promises.push(tblRevenue.create(newCutiRevenueData));
-              promises.push(
-                tblRevenue.update(updateRevenueData, {
-                  where: { id: cutiRevenue.id },
-                })
-              );
-            }
+//               delete newCutiRevenueData.id;
+//               promises.push(tblRevenue.create(newCutiRevenueData));
+//               promises.push(
+//                 tblRevenue.update(updateRevenueData, {
+//                   where: { id: cutiRevenue.id },
+//                 })
+//               );
+//             }
 
-            if (revenueData.length) {
-              await revenueData.forEach((y) => {
-                if (y.status === "PENDING") {
-                  updateRevenueData = {
-                    dateActiveMembership: createDateAsUTC(new Date(moment(y.dateActiveMembership).add(cekSisaBeku(new Date(), x.freezeDate), "days"))),
-                    activeMembershipExpired: createDateAsUTC(new Date(moment(y.activeMembershipExpired).add(cekSisaBeku(new Date(), x.freezeDate), "days"))),
-                  };
-                } else {
-                  updateRevenueData = {
-                    pending_saldo: 0,
-                  };
+//             if (revenueData.length) {
+//               await revenueData.forEach((y) => {
+//                 if (y.status === "PENDING") {
+//                   updateRevenueData = {
+//                     dateActiveMembership: createDateAsUTC(new Date(moment(y.dateActiveMembership).add(cekSisaBeku(new Date(), x.freezeDate), "days"))),
+//                     activeMembershipExpired: createDateAsUTC(new Date(moment(y.activeMembershipExpired).add(cekSisaBeku(new Date(), x.freezeDate), "days"))),
+//                   };
+//                 } else {
+//                   updateRevenueData = {
+//                     pending_saldo: 0,
+//                   };
 
-                  let newRevenueData = {
-                    ...y.dataValues,
-                    dateActiveMembership: createDateAsUTC(new Date()),
-                    activeMembershipExpired: createDateAsUTC(new Date(moment().add(y.pending_saldo, "days").format("YYYY-MM-DD"))),
-                    debit: 0,
-                    kredit: 0,
-                    status: "OPEN",
-                    keterangan: y.keterangan.split(" ")[0] === "Terusan" ? y.keterangan : "Terusan" + " " + y.keterangan,
-                    saldo_member: y.saldo_member - y.kredit,
-                    dateActivePT: null,
-                    activePtExpired: null,
-                    packagePT: null,
-                    timesPT: null,
-                    PTTerpakai: null,
-                    isDone: null,
-                    pricePT: null,
-                  };
+//                   let newRevenueData = {
+//                     ...y.dataValues,
+//                     dateActiveMembership: createDateAsUTC(new Date()),
+//                     activeMembershipExpired: createDateAsUTC(new Date(moment().add(y.pending_saldo, "days").format("YYYY-MM-DD"))),
+//                     debit: 0,
+//                     kredit: 0,
+//                     status: "OPEN",
+//                     keterangan: y.keterangan.split(" ")[0] === "Terusan" ? y.keterangan : "Terusan" + " " + y.keterangan,
+//                     saldo_member: y.saldo_member - y.kredit,
+//                     dateActivePT: null,
+//                     activePtExpired: null,
+//                     packagePT: null,
+//                     timesPT: null,
+//                     PTTerpakai: null,
+//                     isDone: null,
+//                     pricePT: null,
+//                   };
 
-                  delete newRevenueData.id;
-                  promises.push(tblRevenue.create(newRevenueData));
-                }
+//                   delete newRevenueData.id;
+//                   promises.push(tblRevenue.create(newRevenueData));
+//                 }
 
-                promises.push(tblRevenue.update(updateRevenueData, { where: { id: y.id } }));
-              });
-            }
-          }
+//                 promises.push(tblRevenue.update(updateRevenueData, { where: { id: y.id } }));
+//               });
+//             }
+//           }
 
-          promises.push(tblMember.update(data, { where: { memberId: x.memberId } }));
-        });
+//           promises.push(tblMember.update(data, { where: { memberId: x.memberId } }));
+//         });
 
-        await Promise.all(promises);
+//         await Promise.all(promises);
 
-        if (promises.length) {
-          console.log(`Deklarasi Kesehatan before ${date}/${month}/${new Date().getFullYear()}, ${hour}:${minute}:00 has been reset.`);
-        }
-      }
-    });
-  } catch (error) {
-    console.log(createDateAsUTC(new Date()), {
-      Error: "Handle Reset Deklarasi Kesehatan Error.",
-    });
-    console.log(error);
-  }
-}
+//         if (promises.length) {
+//           console.log(`Deklarasi Kesehatan before ${date}/${month}/${new Date().getFullYear()}, ${hour}:${minute}:00 has been reset.`);
+//         }
+//       }
+//     });
+//   } catch (error) {
+//     console.log(createDateAsUTC(new Date()), {
+//       Error: "Handle Reset Deklarasi Kesehatan Error.",
+//     });
+//     console.log(error);
+//   }
+// }
 // ======================   FORMULIR DEKLARASI KESEHATAN (END)   ======================
 
 //===================== PERPANJANG MEMBERSHIP APABILA MEMBER BELUM AKTIF ===============
@@ -725,8 +725,12 @@ async function handleMemberBelumAktif() {
         let memberActiveExpired = new Date(el.activeExpired);
         let updateActiveExpired = createDateAsUTC(new Date(new Date().getFullYear(), new Date().getMonth(), new Date().getDate() + el.packageMembership.times));
         let updateExcitingActiveExpired = createDateAsUTC(new Date(new Date(el.activeExpired).getFullYear(), new Date(el.activeExpired).getMonth(), new Date(el.activeExpired).getDate() + 1));
+        // let updateFreeze = moment(el.freezeDate).format("YYYY-MM-DD") <= moment().format("YYYY-MM-DD")
         let success = await tblMember.update(
-          { activeExpired: el.activeExpired && el.isFreeze ? updateExcitingActiveExpired : updateActiveExpired },
+          { activeExpired: el.activeExpired && el.isFreeze ? updateExcitingActiveExpired : updateActiveExpired,
+            // freezeDate: el.isFreeze && updateFreeze ? createDateAsUTC(new Date()) : el.freezeDate,
+            // activeDate: el.isFreeze ? createDateAsUTC(new Date()) : el.activeDate
+          },
           {
             where: { memberId: el.memberId },
           }
@@ -972,7 +976,7 @@ async function handleScorchedPTMember() {
 //===================== HANGUSKAN PACKAGE CLASS APABILA MEMBER TIDAK PERPANJANG MEMBERSHIPS DAN PACKAGE CLASS EXPIRED ===============
 async function handleScorchedPackageClass() {
   try {
-    schedule.scheduleJob("0 0 * * *", async function() {
+    schedule.scheduleJob("0 0 * * 1", async function() {
       let packageClass = await tblPackageClasses.findAll({
         where: {
           classSession: { [Op.ne]: 0 }

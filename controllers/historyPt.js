@@ -188,12 +188,12 @@ class historyPT {
         let todayData = history.filter((x) => moment(`${x.year}-${x.month}-${x.date}`).format("YYYY-MM-DD") === req.query.day).sort((a, b) => a.time - b.time);
 
         let tmpData = [];
-        let openTime = 13;
+        let openTime = 9;
         let closeTime = 21;
 
         for (let i = openTime; i < closeTime; i++) {
           let time = {
-            time: i < 10 ? `0${i}:00 - 0${i + 1}:00` : `${i}:00 - ${i + 1}:00`,
+            time: i < 10 ? `0${i}:00 - ${i + 1}:00` : `${i}:00 - ${i + 1}:00`,
             partisipan: todayData.filter((x) => +x.time.slice(0, 2) === i),
           };
           tmpData.push(time);

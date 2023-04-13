@@ -1,10 +1,26 @@
-// const { sendErrorReport } = require("../helpers/nodemailer");
+const { sendErrorReport } = require("../helpers/nodemailer");
 
 function errorHandler(err, req, res, next) {
   let status = null;
   let errMessage = null;
 
   switch (err.name) {
+    // case "SequelizeValidationError":
+    //   status = 400;
+    //   errMessage = err.errors.map((el) => {
+    //     return el.message;
+    //   });
+    //   break;
+    // case "SequelizeUniqueConstraintError":
+    //   status = 409;
+    //   errMessage = err.errors.map((el) => {
+    //     return el.message;
+    //   });
+    //   break;
+    case "MissingAccessToken":
+      status = 401;
+      errMessage = "Missing Access Token";
+      break;
     case "unauthorized":
       status = 401;
       errMessage = "Not Authorized";
@@ -67,7 +83,12 @@ function errorHandler(err, req, res, next) {
       break;
   }
   console.log(err);
-  // sendErrorReport(req, req.body.fullname || null, JSON.stringify(req.body), err);
+  sendErrorReport(
+    req,
+    req.body.fullname || null,
+    JSON.stringify(req.body),
+    err
+  );
   res.status(status).json({
     success: false,
     error: errMessage,

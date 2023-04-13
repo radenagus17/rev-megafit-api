@@ -12,7 +12,7 @@ const {
   tblRevenue,
   tblCategoryMembership,
   tblMemberClasses,
-  tblPackageClasses
+  tblPackageClasses,
 } = require("../models");
 
 const { compare, hashPass } = require("../helpers/bcrypt");
@@ -22,7 +22,13 @@ const moment = require("moment");
 const QRCode = require("qrcode");
 const excelToJson = require("convert-excel-to-json");
 const { createDateAsUTC } = require("../helpers/convertDate");
-const { mailOptions, transporter, footerMail, baseUrlServer, baseUrlClient } = require("../helpers/nodemailer");
+const {
+  mailOptions,
+  transporter,
+  footerMail,
+  baseUrlServer,
+  baseUrlClient,
+} = require("../helpers/nodemailer");
 
 class usersController {
   static async signin(req, res, next) {
@@ -49,19 +55,27 @@ class usersController {
           },
         ],
       });
+      const cekUsernameSpasi = userLogin.username.split(" ");
       const theRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*[0-9])(?=.{8,}).*$/g;
-      const result = theRegex.test(password)
+      const token = sign({ userId: userLogin.userId, email: userLogin.email });
+      const result = theRegex.test(password);
       if (!userLogin) throw { name: "unauthorized" };
       const pass = compare(password, userLogin.password);
       if (!pass) throw { name: "unauthorized" };
-      if(!result) res.status(200).json({
-        success: false,
-        error: "At least 8 characters, min 1 Uppercase 1 Lowercase 1 Number 1",
-        changePass: true,
-        userId: userLogin.userId,
-        password_lama: password
-      })
-      const token = sign({ userId: userLogin.userId, email: userLogin.email });
+      if (cekUsernameSpasi.length > 1 || !result)
+        res.status(200).json({
+          success: false,
+          errorMessage: !result
+            ? "At least 8 characters, min 1 Uppercase 1 Lowercase 1 Number 1"
+            : !result && cekUsernameSpasi.length > 1
+            ? "Password and username wrong!"
+            : "Username contains spaces",
+          changePass: !result ? true : false,
+          changeUser: cekUsernameSpasi.length > 1 ? true : false,
+          userId: userLogin.userId,
+          password_lama: !result ? password : null,
+          tokenChange: token,
+        });
 
       res.status(200).json({
         token,
@@ -69,15 +83,25 @@ class usersController {
         fullname: userLogin.fullname,
         userId: userLogin.userId,
         roleId: userLogin.roleId,
-        hasConfirmTermAndCondition: userLogin.tblMember ? userLogin.tblMember.hasConfirmTermAndCondition : null,
-        hasSeenSdkFreeze: userLogin.tblMember ? userLogin.tblMember.hasSeenSdkFreeze : null,
+        hasConfirmTermAndCondition: userLogin.tblMember
+          ? userLogin.tblMember.hasConfirmTermAndCondition
+          : null,
+        hasSeenSdkFreeze: userLogin.tblMember
+          ? userLogin.tblMember.hasSeenSdkFreeze
+          : null,
         isFreeze: userLogin.tblMember ? userLogin.tblMember.isFreeze : null,
         freezeDate: userLogin.tblMember ? userLogin.tblMember.freezeDate : null,
         memberId: userLogin.tblMember ? userLogin.tblMember.memberId : null,
-        packageId: userLogin.tblMember ? userLogin.tblMember.packageMembershipId : null,
-        activeExpired: userLogin.tblMember ? userLogin.tblMember.activeExpired : null,
+        packageId: userLogin.tblMember
+          ? userLogin.tblMember.packageMembershipId
+          : null,
+        activeExpired: userLogin.tblMember
+          ? userLogin.tblMember.activeExpired
+          : null,
         canPTOnline: userLogin.tblStaff ? userLogin.tblStaff.canPTOnline : null,
-        memberClasses: userLogin.tblMember ? userLogin.tblMember.tblMemberClasses : null,
+        memberClasses: userLogin.tblMember
+          ? userLogin.tblMember.tblMemberClasses
+          : null,
         ptId: userLogin.tblMember?.tblStaff?.userId || null,
       });
     } catch (error) {
@@ -128,7 +152,12 @@ class usersController {
         igAccount,
         roleId,
         haveWhatsapp,
-        flagActive: activeExpired === "null" || !activeExpired ? false : new Date(activeExpired) < new Date() ? false : true,
+        flagActive:
+          activeExpired === "null" || !activeExpired
+            ? false
+            : new Date(activeExpired) < new Date()
+            ? false
+            : true,
       };
       if (Number(phone[0]) === 0) {
         newUser.phone = "62" + phone.slice(1, phone.length);
@@ -138,13 +167,38 @@ class usersController {
         newUser.phone = phone;
       }
 
-      const checkingUser = await tblUser.findOne({
-        where: {
-          [Op.or]: [{ email }, { username }, { phone }, { noKtp }],
-        },
-      });
-
-      if (checkingUser) throw { name: "unauthorized" };
+      if (username) {
+        const checkingUserUsername = await tblUser.findOne({
+          where: {
+            username,
+          },
+        });
+        if (checkingUserUsername)
+          return res.status(409).json({ message: "username salah" });
+      }
+      if (email) {
+        const checkingUserEmail = await tblUser.findOne({
+          where: {
+            email,
+          },
+        });
+        if (checkingUserEmail)
+          return res.status(409).json({ message: "emailmu salah" });
+      }
+      if (phone) {
+        const checkingUserHp = await tblUser.findOne({
+          where: {
+            phone:
+              Number(phone[0]) === 0
+                ? `62${phone.slice(1, phone.length)}`
+                : Number(phone.slice(0, 2)) === 62
+                ? phone
+                : phone,
+          },
+        });
+        if (checkingUserHp)
+          return res.status(409).json({ message: "no.hp salah" });
+      }
 
       let createUser = await tblUser.create(newUser);
 
@@ -157,8 +211,10 @@ class usersController {
           available: available ? available : true,
           NIK,
           canPTOnline: canPTOnline || false,
-          evaluatorId1: evaluatorId1 === "null" || !evaluatorId1 ? null : evaluatorId1,
-          evaluatorId2: evaluatorId2 === "null" || !evaluatorId2 ? null : evaluatorId2,
+          evaluatorId1:
+            evaluatorId1 === "null" || !evaluatorId1 ? null : evaluatorId1,
+          evaluatorId2:
+            evaluatorId2 === "null" || !evaluatorId2 ? null : evaluatorId2,
         };
 
         if (createUser) createStaff = await tblStaff.create(newStaff);
@@ -192,10 +248,18 @@ class usersController {
 
         let createMember, updateMember;
         let newMember = {
-          memberId: lastIdNumber[0].memberId < 2000 ? 2000 : lastIdNumber[0].memberId + 1,
+          memberId:
+            lastIdNumber[0].memberId < 2000
+              ? 2000
+              : lastIdNumber[0].memberId + 1,
           userId: createUser.userId,
           cardImage: "",
-          activeExpired: activeExpired === "null" || !activeExpired ? null : createDateAsUTC(new Date(activeExpired)),
+          isHealthy: true,
+          healthExpiredAt: createDateAsUTC(new Date()),
+          activeExpired:
+            activeExpired === "null" || !activeExpired
+              ? null
+              : createDateAsUTC(new Date(activeExpired)),
           ptId: ptId === "null" || ptId === "" ? null : ptId,
           ptSessionOnline: ptSessionOnline || 0,
         };
@@ -212,7 +276,11 @@ class usersController {
             light: "#FFF", //background
           },
         });
-        if (createMember) updateMember = await tblMember.update({ cardImage: `/qr/${nameImageCard}.png` }, { where: { userId: createMember.userId } });
+        if (createMember)
+          updateMember = await tblMember.update(
+            { cardImage: `/qr/${nameImageCard}.png` },
+            { where: { userId: createMember.userId } }
+          );
 
         if (updateMember)
           findNew = await tblUser.findByPk(createMember.userId, {
@@ -274,7 +342,7 @@ class usersController {
         username: email,
         password: hashPass(phone),
         fullname: capitalize(fullname),
-        nickname: fullname.split(" ")[0],
+        nickname: capitalize(fullname.split(" ")[0]),
         email: email,
         phone: phone,
         roleId: 2,
@@ -292,30 +360,45 @@ class usersController {
 
       const checkingUser = await tblUser.findOne({
         where: {
-          [Op.or]: [{ email }, { phone: Number(phone[0]) === 0 ? `62${phone.slice(1, phone.length)}` : Number(phone.slice(0, 2)) === 62 ? phone : phone }],
+          [Op.or]: [
+            { email },
+            {
+              phone:
+                Number(phone[0]) === 0
+                  ? `62${phone.slice(1, phone.length)}`
+                  : Number(phone.slice(0, 2)) === 62
+                  ? phone
+                  : phone,
+            },
+          ],
         },
       });
 
       if (checkingUser) throw { name: "emailFound" };
-
       let createUser = await tblUser.create(newUser);
       let lastIdNumber = await tblMember.findAll({
         order: [["memberId", "DESC"]],
       });
 
-      await QRCode.toFile(`./qr/${lastIdNumber[0].memberId + 1}.png`, `${lastIdNumber[0].memberId + 1}`, {
-        color: {
-          dark: "#000",
-          light: "#FFF", //backround
-        },
-      });
+      await QRCode.toFile(
+        `./qr/${lastIdNumber[0].memberId + 1}.png`,
+        `${lastIdNumber[0].memberId + 1}`,
+        {
+          color: {
+            dark: "#000",
+            light: "#FFF", //backround
+          },
+        }
+      );
 
       let newMember = {
         memberId: lastIdNumber[0].memberId + 1,
         cardImage: `/qr/${lastIdNumber[0].memberId + 1}.png`,
-        userId: createUser.null,
+        userId: createUser.userId,
         activeExpired: createDateAsUTC(new Date(moment().add(1, "days"))),
         packageMembershipId: "Trial",
+        isHealthy: true,
+        healthExpiredAt: createDateAsUTC(new Date()),
         hasSeenSdkFreeze: true,
         invited_by: member,
       };
@@ -323,7 +406,7 @@ class usersController {
       await tblMember.create(newMember);
 
       let responseData = {
-        userId: createUser.null,
+        userId: createUser.userId,
         roleId: 2,
         fullname: capitalize(fullname),
         nickname: fullname.split(" ")[0],
@@ -339,7 +422,7 @@ class usersController {
         dataMemberClasses: null,
       };
 
-      let token = sign({ userId: createUser.null });
+      let token = sign({ userId: createUser.userId });
       res.status(201).json({ message: "Success", data: responseData, token });
 
       mailOptions.to = email;
@@ -403,7 +486,12 @@ class usersController {
 
       const checkingUser = await tblUser.findOne({
         where: {
-          phone: Number(phone[0]) === 0 ? `62${phone.slice(1, phone.length)}` : Number(phone.slice(0, 2)) === 62 ? phone : phone,
+          phone:
+            Number(phone[0]) === 0
+              ? `62${phone.slice(1, phone.length)}`
+              : Number(phone.slice(0, 2)) === 62
+              ? phone
+              : phone,
         },
       });
 
@@ -414,12 +502,16 @@ class usersController {
         order: [["memberId", "DESC"]],
       });
 
-      await QRCode.toFile(`./qr/${lastIDMember[0].memberId + 1}.png`, `${lastIDMember[0].memberId + 1}`, {
-        color: {
-          dark: "#000",
-          light: "#FFF", //background
-        },
-      });
+      await QRCode.toFile(
+        `./qr/${lastIDMember[0].memberId + 1}.png`,
+        `${lastIDMember[0].memberId + 1}`,
+        {
+          color: {
+            dark: "#000",
+            light: "#FFF", //background
+          },
+        }
+      );
 
       let newMember = {
         memberId: lastIDMember[0].memberId + 1,
@@ -450,7 +542,10 @@ class usersController {
         },
       });
 
-      await tblMember.update({ cardImage: `/qr/${nameImageCard}.png` }, { where: { memberId } });
+      await tblMember.update(
+        { cardImage: `/qr/${nameImageCard}.png` },
+        { where: { memberId } }
+      );
       res.status(200).json({ Message: "QR Code Has Been Generated." });
     } catch (error) {
       next(error);
@@ -459,7 +554,9 @@ class usersController {
 
   static async updateDataMember(req, res, next) {
     try {
-      let member = await tblMember.findOne({ where: { userId: req.params.id } });
+      let member = await tblMember.findOne({
+        where: { userId: req.params.id },
+      });
 
       let oldData = await tblDataSizeMember.findOne({
         where: { memberId: member.memberId },
@@ -467,22 +564,102 @@ class usersController {
       });
 
       let newData = {
-        umur: Number(req.body.umur) !== 0 ? req.body.umur : oldData && oldData.umur ? oldData.umur : 0,
-        height: Number(req.body.height) !== 0 ? req.body.height : oldData && oldData.height ? oldData.height : 0,
-        weight: Number(req.body.weight) !== 0 ? req.body.weight : oldData && oldData.weight ? oldData.weight : 0,
-        triceps: Number(req.body.triceps) !== 0 ? req.body.triceps : oldData && oldData.triceps ? oldData.triceps : 0,
-        dada: Number(req.body.dada) !== 0 ? req.body.dada : oldData && oldData.dada ? oldData.dada : 0,
-        perut: Number(req.body.perut) !== 0 ? req.body.perut : oldData && oldData.perut ? oldData.perut : 0,
-        pinggul: Number(req.body.pinggul) !== 0 ? req.body.pinggul : oldData && oldData.pinggul ? oldData.pinggul : 0,
-        pinggang: Number(req.body.pinggang) !== 0 ? req.body.pinggang : oldData && oldData.pinggang ? oldData.pinggang : 0,
-        paha: Number(req.body.paha) !== 0 ? req.body.paha : oldData && oldData.paha ? oldData.paha : 0,
-        targetWeight: +req.body.targetWeight !== 0 ? +req.body.targetWeight : oldData && oldData.targetWeight ? oldData.targetWeight : 0,
-        targetTriceps: +req.body.targetTriceps !== 0 ? +req.body.targetTriceps : oldData && oldData.targetTriceps ? oldData.targetTriceps : 0,
-        targetDada: +req.body.targetDada !== 0 ? +req.body.targetDada : oldData && oldData.targetDada ? oldData.targetDada : 0,
-        targetPerut: +req.body.targetPerut !== 0 ? +req.body.targetPerut : oldData && oldData.targetPerut ? oldData.targetPerut : 0,
-        targetPinggul: +req.body.targetPinggul !== 0 ? +req.body.targetPinggul : oldData && oldData.targetPinggul ? oldData.targetPinggul : 0,
-        targetPinggang: +req.body.targetPinggang !== 0 ? +req.body.targetPinggang : oldData && oldData.targetPinggang ? oldData.targetPinggang : 0,
-        targetPaha: +req.body.targetPaha !== 0 ? +req.body.targetPaha : oldData && oldData.targetPaha ? oldData.targetPaha : 0,
+        umur:
+          Number(req.body.umur) !== 0
+            ? req.body.umur
+            : oldData && oldData.umur
+            ? oldData.umur
+            : 0,
+        height:
+          Number(req.body.height) !== 0
+            ? req.body.height
+            : oldData && oldData.height
+            ? oldData.height
+            : 0,
+        weight:
+          Number(req.body.weight) !== 0
+            ? req.body.weight
+            : oldData && oldData.weight
+            ? oldData.weight
+            : 0,
+        triceps:
+          Number(req.body.triceps) !== 0
+            ? req.body.triceps
+            : oldData && oldData.triceps
+            ? oldData.triceps
+            : 0,
+        dada:
+          Number(req.body.dada) !== 0
+            ? req.body.dada
+            : oldData && oldData.dada
+            ? oldData.dada
+            : 0,
+        perut:
+          Number(req.body.perut) !== 0
+            ? req.body.perut
+            : oldData && oldData.perut
+            ? oldData.perut
+            : 0,
+        pinggul:
+          Number(req.body.pinggul) !== 0
+            ? req.body.pinggul
+            : oldData && oldData.pinggul
+            ? oldData.pinggul
+            : 0,
+        pinggang:
+          Number(req.body.pinggang) !== 0
+            ? req.body.pinggang
+            : oldData && oldData.pinggang
+            ? oldData.pinggang
+            : 0,
+        paha:
+          Number(req.body.paha) !== 0
+            ? req.body.paha
+            : oldData && oldData.paha
+            ? oldData.paha
+            : 0,
+        targetWeight:
+          +req.body.targetWeight !== 0
+            ? +req.body.targetWeight
+            : oldData && oldData.targetWeight
+            ? oldData.targetWeight
+            : 0,
+        targetTriceps:
+          +req.body.targetTriceps !== 0
+            ? +req.body.targetTriceps
+            : oldData && oldData.targetTriceps
+            ? oldData.targetTriceps
+            : 0,
+        targetDada:
+          +req.body.targetDada !== 0
+            ? +req.body.targetDada
+            : oldData && oldData.targetDada
+            ? oldData.targetDada
+            : 0,
+        targetPerut:
+          +req.body.targetPerut !== 0
+            ? +req.body.targetPerut
+            : oldData && oldData.targetPerut
+            ? oldData.targetPerut
+            : 0,
+        targetPinggul:
+          +req.body.targetPinggul !== 0
+            ? +req.body.targetPinggul
+            : oldData && oldData.targetPinggul
+            ? oldData.targetPinggul
+            : 0,
+        targetPinggang:
+          +req.body.targetPinggang !== 0
+            ? +req.body.targetPinggang
+            : oldData && oldData.targetPinggang
+            ? oldData.targetPinggang
+            : 0,
+        targetPaha:
+          +req.body.targetPaha !== 0
+            ? +req.body.targetPaha
+            : oldData && oldData.targetPaha
+            ? oldData.targetPaha
+            : 0,
         memberId: member.memberId,
       };
 
@@ -522,8 +699,8 @@ class usersController {
       if (checkDataExist.length) throw { name: "emailFound" };
       let data = {
         email,
-        fullname,
-        nickname,
+        fullname: capitalize(fullname),
+        nickname: capitalize(nickname),
         gender,
         dateOfBirth: createDateAsUTC(new Date(date)),
         first_login: false,
@@ -544,6 +721,17 @@ class usersController {
       const user = await tblUser.findOne({ where: { email: req.query.email } });
       if (!user) throw { name: "userNotFound" };
       const token = sign({ userId: user.userId });
+      const OTP = generateOTP();
+      await tblUser.update({ OTP }, { where: { userId: user.userId } });
+      if (user) {
+        await setTimeout(async () => {
+          await tblUser.update(
+            { OTP: null },
+            { where: { userId: user.userId } }
+          );
+        }, 120000);
+        res.status(200).json({ token: token });
+      }
       mailOptions.to = user.email;
       mailOptions.subject = "Reset password Megafit";
       mailOptions.html = `
@@ -554,10 +742,8 @@ class usersController {
       <img src="${baseUrlServer}/asset/img/forget_password_1.png" height="150" width="150" alt="logo-forget" />
       <br />
       <p><b>Username : ${user.username}</b></p>
-      <div style="border-radius: 2px;background-color:#91c640;width:128px;">
-        <a href="${baseUrlClient}/reset-password/${token}" target="_blank" style="padding: 8px 12px; border: 1px solid #91c640;border-radius: 2px;color: #ffffff;text-decoration: none;font-weight:bold;display: inline-block;">
-          Reset Password             
-        </a>
+      <div style="border-radius: 4px;background-color:#91c640;display:flex;justify-content: center;align-items: center;padding:16px;text-align:center;color: #ffffff;font-weight:bold;font-size: 20px;width:48px">
+          ${OTP}             
       </div>
     
       <p style="margin:10px 0px;">Jika permintaan penggantian password ini bukan dari Anda, atau jika Anda merasa akun
@@ -672,39 +858,92 @@ class usersController {
         await data.forEach((x) => {
           x.sisaHariMembership = cekSisaHari(x.tblMember.activeExpired);
           x.sisaHariMembershipConverted =
-            x.tblMember.isFreeze && x.tblMember.activeDate && !x.tblMember.isLeave
-              ? `${cekSisaHari(x.tblMember.activeExpired, x.tblMember.freezeDate)} Hari`
-              : (x.tblMember.activeDate && x.tblMember.leaveDate && new Date(x.tblMember.leaveDate) > new Date()) || (x.tblMember.activeDate && x.tblMember.leaveDate && x.tblMember.isLeave)
-              ? `${cekSisaHari(x.tblMember.activeExpired, x.tblMember.leaveDate) - 30} Hari`
-              : cekSisaHari(x.tblMember.activeExpired) <= 0 || !x.tblMember.activeExpired
+            x.tblMember.isFreeze &&
+            x.tblMember.activeDate &&
+            !x.tblMember.isLeave
+              ? `${cekSisaHari(
+                  x.tblMember.activeExpired,
+                  x.tblMember.freezeDate
+                )} Hari`
+              : (x.tblMember.activeDate &&
+                  x.tblMember.leaveDate &&
+                  new Date(x.tblMember.leaveDate) > new Date()) ||
+                (x.tblMember.activeDate &&
+                  x.tblMember.leaveDate &&
+                  x.tblMember.isLeave)
+              ? `${
+                  cekSisaHari(
+                    x.tblMember.activeExpired,
+                    x.tblMember.leaveDate
+                  ) - 30
+                } Hari`
+              : cekSisaHari(x.tblMember.activeExpired) <= 0 ||
+                !x.tblMember.activeExpired
               ? `0 Hari`
               : `${cekSisaHari(x.tblMember.activeExpired)} Hari`;
           x.status = x.tblMember.isFreeze
             ? "BEKU"
-            : x.tblMember.activeDate && x.tblMember.isLeave && x.tblMember.leaveDate && !x.tblMember.isFreeze
+            : x.tblMember.activeDate &&
+              x.tblMember.isLeave &&
+              x.tblMember.leaveDate &&
+              !x.tblMember.isFreeze
             ? "CUTI"
-            : !x.tblMember.activeDate && !x.tblMember.isFreeze && x.tblMember.activeExpired
+            : !x.tblMember.activeDate &&
+              !x.tblMember.isFreeze &&
+              x.tblMember.activeExpired
             ? "BELUM AKTIF"
-            : x.tblMember.activeDate && x.sisaHariMembership > 0 && !x.tblMember.isFreeze && !x.tblMember.isLeave
+            : x.tblMember.activeDate &&
+              x.sisaHariMembership > 0 &&
+              !x.tblMember.isFreeze &&
+              !x.tblMember.isLeave
             ? "AKTIF"
-            : x.tblMember.activeDate && x.sisaHariMembership > -7 && x.sisaHariMembership <= 0 && !x.tblMember.isFreeze && !x.tblMember.isLeave
+            : x.tblMember.activeDate &&
+              x.sisaHariMembership > -7 &&
+              x.sisaHariMembership <= 0 &&
+              !x.tblMember.isFreeze &&
+              !x.tblMember.isLeave
             ? "TENGGANG"
-            : !x.tblMember.activeExpired && !x.tblMember.activeDate && !x.tblMember.packageMembershipId
+            : !x.tblMember.activeExpired &&
+              !x.tblMember.activeDate &&
+              !x.tblMember.packageMembershipId
             ? "LEADS"
             : "BERHENTI";
 
-          x.joinDate = moment(new Date(x.tblMember.createdAt)).format("DD MMM YYYY");
-          x.activeExpired = !x.tblMember.activeExpired ? "-" : moment(new Date(x.tblMember.activeExpired)).format("DD MMM YYYY");
-          x.activeDate = !x.tblMember.activeDate ? "-" : moment(new Date(x.tblMember.activeDate)).format("DD MMM YYYY");
-          x.lastCheckin = !x.tblMember.lastCheckin ? "-" : moment(new Date(x.tblMember.lastCheckin)).format("DD MMM YYYY");
+          x.joinDate = moment(new Date(x.tblMember.createdAt)).format(
+            "DD MMM YYYY"
+          );
+          x.activeExpired = !x.tblMember.activeExpired
+            ? "-"
+            : moment(new Date(x.tblMember.activeExpired)).format("DD MMM YYYY");
+          x.activeDate = !x.tblMember.activeDate
+            ? "-"
+            : moment(new Date(x.tblMember.activeDate)).format("DD MMM YYYY");
+          x.lastCheckin = !x.tblMember.lastCheckin
+            ? "-"
+            : moment(new Date(x.tblMember.lastCheckin)).format("DD MMM YYYY");
           x.ptSession = x.tblMember.ptSession;
           x.ptSessionOnline = x.tblMember.ptSessionOnline;
           x.packageMembershipId = x.tblMember.packageMembershipId;
-          x.freezeDate = !x.tblMember.freezeDate ? "-" : moment(new Date(x.tblMember.freezeDate)).format("DD MMM YYYY");
-          x.unfreezeDate = !x.tblMember.unfreezeDate ? "-" : moment(new Date(x.tblMember.unfreezeDate)).format("DD MMM YYYY");
-          x.leaveDate = !x.tblMember.leaveDate ? "-" : moment(new Date(x.tblMember.leaveDate)).format("DD MMM YYYY");
-          x.isHealthy = x.tblMember.isHealthy === null ? "-" : !x.tblMember.isHealthy ? "FALSE" : "TRUE";
-          x.healthExpiredAt = !x.tblMember.healthExpiredAt ? "-" : moment(new Date(x.tblMember.healthExpiredAt)).format("DD MMM YYYY");
+          x.freezeDate = !x.tblMember.freezeDate
+            ? "-"
+            : moment(new Date(x.tblMember.freezeDate)).format("DD MMM YYYY");
+          x.unfreezeDate = !x.tblMember.unfreezeDate
+            ? "-"
+            : moment(new Date(x.tblMember.unfreezeDate)).format("DD MMM YYYY");
+          x.leaveDate = !x.tblMember.leaveDate
+            ? "-"
+            : moment(new Date(x.tblMember.leaveDate)).format("DD MMM YYYY");
+          x.isHealthy =
+            x.tblMember.isHealthy === null
+              ? "-"
+              : !x.tblMember.isHealthy
+              ? "FALSE"
+              : "TRUE";
+          x.healthExpiredAt = !x.tblMember.healthExpiredAt
+            ? "-"
+            : moment(new Date(x.tblMember.healthExpiredAt)).format(
+                "DD MMM YYYY"
+              );
           x.memberId = x.tblMember.memberId;
         });
 
@@ -715,19 +954,29 @@ class usersController {
             {
               required: true,
               model: tblMember,
-              include: [{ model: tblDataSizeMember }, { model: tblTaskPT }, { model: tblFoodTracking }],
+              include: [
+                { model: tblDataSizeMember },
+                { model: tblTaskPT },
+                { model: tblFoodTracking },
+              ],
             },
             { model: tblRole },
           ],
         });
       } else if (req.query.only === "staff") {
         data = await tblUser.findAll({
-          include: [{ required: true, model: tblStaff, as: "staff" }, { model: tblRole }],
+          include: [
+            { required: true, model: tblStaff, as: "staff" },
+            { model: tblRole },
+          ],
         });
       } else if (req.query.only === "pt") {
         data = await tblUser.findAll({
           where: { roleId: 6 },
-          include: [{ required: true, model: tblStaff, as: "staff" }, { model: tblRole }],
+          include: [
+            { required: true, model: tblStaff, as: "staff" },
+            { model: tblRole },
+          ],
         });
       } else {
         data = await tblUser.findAll({
@@ -744,7 +993,10 @@ class usersController {
           ],
         });
       }
-      if (data) res.status(200).json({ message: "Success", totalRecord: data.length, data });
+      if (data)
+        res
+          .status(200)
+          .json({ message: "Success", totalRecord: data.length, data });
     } catch (error) {
       next(error);
     }
@@ -754,10 +1006,15 @@ class usersController {
     try {
       const data = await tblUser.findAll({
         where: { roleId: 6 },
-        include: [{ required: true, model: tblStaff, as: "staff" }, { model: tblRole }],
+        include: [
+          { required: true, model: tblStaff, as: "staff" },
+          { model: tblRole },
+        ],
       });
 
-      res.status(200).json({ message: "Success", totalRecord: data.length, data });
+      res
+        .status(200)
+        .json({ message: "Success", totalRecord: data.length, data });
     } catch (error) {
       next(error);
     }
@@ -775,13 +1032,19 @@ class usersController {
             {
               model: tblMember,
               where: { memberId: req.query.idMember },
-              include: { model: tblPackageMemberships, as: "packageMembership" },
+              include: {
+                model: tblPackageMemberships,
+                as: "packageMembership",
+              },
             },
           ],
         });
         if (detailMember) {
           if (new Date(detailMember.tblMember.activeExpired) < new Date()) {
-            await tblUser.update({ flagActive: false }, { where: { userId: detailMember.userId } });
+            await tblUser.update(
+              { flagActive: false },
+              { where: { userId: detailMember.userId } }
+            );
 
             detailMember.flagActive = 0;
           }
@@ -820,7 +1083,10 @@ class usersController {
           if (detailUser.tblMember) {
             //cek sudah expired atau belum
             if (new Date(detailUser.tblMember.activeExpired) < new Date()) {
-              await tblUser.update({ flagActive: false }, { where: { userId: detailUser.userId } });
+              await tblUser.update(
+                { flagActive: false },
+                { where: { userId: detailUser.userId } }
+              );
 
               detailUser.flagActive = 0;
             }
@@ -834,7 +1100,9 @@ class usersController {
               checkId = checkLockerkey.checkId;
             }
           }
-          res.status(200).json({ message: "Success", data: detailUser, lockerKey, checkId });
+          res
+            .status(200)
+            .json({ message: "Success", data: detailUser, lockerKey, checkId });
         }
       } else {
         let detailUser = await tblUser.findByPk(req.params.id, {
@@ -843,7 +1111,13 @@ class usersController {
             { model: tblStaff, as: "staff" },
             {
               model: tblMember,
-              include: [{ model: tblDataSizeMember }, { model: tblStaff, include: [{ model: tblUser, as: "staff" }] }, { model: tblTaskPT }, {model: tblFoodTracking}, { model: tblPackageClasses }],
+              include: [
+                { model: tblDataSizeMember },
+                { model: tblStaff, include: [{ model: tblUser, as: "staff" }] },
+                { model: tblTaskPT },
+                { model: tblFoodTracking },
+                { model: tblPackageClasses },
+              ],
             },
             { model: tblCheckinCheckouts, as: "member" },
           ],
@@ -855,13 +1129,23 @@ class usersController {
           if (detailUser.tblMember) {
             //cek sudah expired atau belum
             if (
-              new Date(detailUser.tblMember.activeExpired).getFullYear() < new Date().getFullYear() ||
-              (new Date(detailUser.tblMember.activeExpired).getMonth() < new Date().getMonth() && new Date(detailUser.tblMember.activeExpired).getFullYear() <= new Date().getFullYear()) ||
-              (new Date(detailUser.tblMember.activeExpired).getDate() < new Date().getDate() &&
-                new Date(detailUser.tblMember.activeExpired).getMonth() === new Date().getMonth() &&
-                new Date(detailUser.tblMember.activeExpired).getFullYear() === new Date().getFullYear())
+              new Date(detailUser.tblMember.activeExpired).getFullYear() <
+                new Date().getFullYear() ||
+              (new Date(detailUser.tblMember.activeExpired).getMonth() <
+                new Date().getMonth() &&
+                new Date(detailUser.tblMember.activeExpired).getFullYear() <=
+                  new Date().getFullYear()) ||
+              (new Date(detailUser.tblMember.activeExpired).getDate() <
+                new Date().getDate() &&
+                new Date(detailUser.tblMember.activeExpired).getMonth() ===
+                  new Date().getMonth() &&
+                new Date(detailUser.tblMember.activeExpired).getFullYear() ===
+                  new Date().getFullYear())
             ) {
-              await tblUser.update({ flagActive: false }, { where: { userId: detailUser.userId } });
+              await tblUser.update(
+                { flagActive: false },
+                { where: { userId: detailUser.userId } }
+              );
 
               detailUser.flagActive = 0;
             }
@@ -869,7 +1153,10 @@ class usersController {
             let checkLockerkey = await tblCheckinCheckouts.findOne({
               where: {
                 userId: detailUser.userId,
-                [Op.or]: [{ lockerKey: { [Op.ne]: 0 } }, { noBottle: { [Op.ne]: 0 } }],
+                [Op.or]: [
+                  { lockerKey: { [Op.ne]: 0 } },
+                  { noBottle: { [Op.ne]: 0 } },
+                ],
               },
             });
 
@@ -885,7 +1172,9 @@ class usersController {
             });
           }
           if (detailUser.tblMember) {
-            detailUser.member = detailUser.member.filter((el) => el.isReservation === true);
+            detailUser.member = detailUser.member.filter(
+              (el) => el.isReservation === true
+            );
             res.status(200).json({
               message: "Success",
               data: detailUser,
@@ -964,7 +1253,12 @@ class usersController {
 
       let selisihHari = cekSisaHari(new Date(), new Date(member.leaveDate));
 
-      let newActiveExpired = new Date(new Date(member.activeExpired).setDate(new Date(member.activeExpired).getDate() - (packageLeave.tblPackageMemberships[0].times - selisihHari)));
+      let newActiveExpired = new Date(
+        new Date(member.activeExpired).setDate(
+          new Date(member.activeExpired).getDate() -
+            (packageLeave.tblPackageMemberships[0].times - selisihHari)
+        )
+      );
 
       let promises = [];
       let lastDateExpired = new Date();
@@ -994,11 +1288,20 @@ class usersController {
           let createRevenue = {
             ...x.dataValues,
             dateActiveMembership: createDateAsUTC(new Date()),
-            activeMembershipExpired: createDateAsUTC(new Date(moment(lastDateExpired).add(x.pending_saldo, "days").format("YYYY-MM-DD"))),
+            activeMembershipExpired: createDateAsUTC(
+              new Date(
+                moment(lastDateExpired)
+                  .add(x.pending_saldo, "days")
+                  .format("YYYY-MM-DD")
+              )
+            ),
             debit: 0,
             kredit: 0,
             status: "OPEN",
-            keterangan: x.keterangan.split(" ")[0] === "Terusan" ? x.keterangan : "Terusan" + " " + x.keterangan,
+            keterangan:
+              x.keterangan.split(" ")[0] === "Terusan"
+                ? x.keterangan
+                : "Terusan" + " " + x.keterangan,
             saldo_member: x.saldo_member - x.kredit,
             dateActivePT: null,
             activePtExpired: null,
@@ -1009,20 +1312,28 @@ class usersController {
             pricePT: null,
           };
 
-          lastDateExpired = new Date(moment(lastDateExpired).add(x.pending_saldo, "days").format("YYYY-MM-DD"));
+          lastDateExpired = new Date(
+            moment(lastDateExpired)
+              .add(x.pending_saldo, "days")
+              .format("YYYY-MM-DD")
+          );
 
           delete createRevenue.id;
           promises.push(tblRevenue.create(createRevenue));
         }
 
-        promises.push(tblRevenue.update(updateRevenueData, { where: { id: x.id } }));
+        promises.push(
+          tblRevenue.update(updateRevenueData, { where: { id: x.id } })
+        );
       });
 
       if (cutiRevenue) {
         await tblRevenue.update(
           {
             status: "CLOSED",
-            kredit: cutiRevenue.debit ? cutiRevenue.debit : cutiRevenue.pending_saldo,
+            kredit: cutiRevenue.debit
+              ? cutiRevenue.debit
+              : cutiRevenue.pending_saldo,
             pending_saldo: 0,
             activeMembershipExpired: createDateAsUTC(new Date()),
             last_kredited: createDateAsUTC(new Date()),
@@ -1051,7 +1362,10 @@ class usersController {
 
   static async resetFormKesehatan(req, res, next) {
     try {
-      await tblMember.update({ isHealthy: 1 }, { where: { memberId: req.params.id } });
+      await tblMember.update(
+        { isHealthy: 1 },
+        { where: { memberId: req.params.id } }
+      );
       res.status(200).json({ message: "Success" });
     } catch (error) {
       next(error);
@@ -1067,7 +1381,7 @@ class usersController {
             model: tblStaff,
             as: "staff",
           },
-          tblMember,
+          { model: tblMember, include: { model: tblStaff } },
         ],
       });
 
@@ -1076,18 +1390,40 @@ class usersController {
         fullname: userLogin.fullname,
         userId: userLogin.userId,
         roleId: userLogin.roleId,
-        hasConfirmTermAndCondition: userLogin.tblMember ? userLogin.tblMember.hasConfirmTermAndCondition : null,
-        hasSeenSdkFreeze: userLogin.tblMember ? userLogin.tblMember.hasSeenSdkFreeze : null,
+        hasConfirmTermAndCondition: userLogin.tblMember
+          ? userLogin.tblMember.hasConfirmTermAndCondition
+          : null,
+        hasSeenSdkFreeze: userLogin.tblMember
+          ? userLogin.tblMember.hasSeenSdkFreeze
+          : null,
         isFreeze: userLogin.tblMember ? userLogin.tblMember.isFreeze : null,
         freezeDate: userLogin.tblMember ? userLogin.tblMember.freezeDate : null,
         memberId: userLogin.tblMember ? userLogin.tblMember.memberId : null,
-        activeExpired: userLogin.tblMember ? userLogin.tblMember.activeExpired : null,
-        packageId: userLogin.tblMember ? userLogin.tblMember.packageMembershipId : null,
+        activeExpired: userLogin.tblMember
+          ? userLogin.tblMember.activeExpired
+          : null,
+        packageId: userLogin.tblMember
+          ? userLogin.tblMember.packageMembershipId
+          : null,
         canPTOnline: userLogin.tblStaff ? userLogin.tblStaff.canPTOnline : null,
         staffId: userLogin.staff ? userLogin.staff.staffId : null,
-        memberClasses: userLogin.tblMember ? userLogin.tblMember.tblMemberClasses : null,
+        // memberClasses: userLogin.tblMember ? userLogin.tblMember.tblMemberClasses : null,
         ptId: userLogin.tblMember?.tblStaff?.userId || null,
       });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  static async checkOTP(req, res, next) {
+    try {
+      const checkOTP = await tblUser.findOne({
+        where: { OTP: req.query.OTP, userId: req.user.userId },
+      });
+
+      if (!checkOTP) throw { name: "notFound" };
+
+      res.send();
     } catch (error) {
       next(error);
     }
@@ -1195,13 +1531,20 @@ class usersController {
             // categoryMembershipId: String(element.noKtp),
             let selectKategori;
             if (element.categoryMembership === String) {
-              selectKategori = await kategori.find((el) => el.categoryMembership.toLowerCase() === element.categoryMembership.toLowerCase());
+              selectKategori = await kategori.find(
+                (el) =>
+                  el.categoryMembership.toLowerCase() ===
+                  element.categoryMembership.toLowerCase()
+              );
             } else {
-              selectKategori = await kategori.find((el) => el.categoryMembership === element.categoryMembership);
+              selectKategori = await kategori.find(
+                (el) => el.categoryMembership === element.categoryMembership
+              );
             }
 
             if (selectKategori) {
-              newData.categoryMembershipId = selectKategori.categoryMembershipId;
+              newData.categoryMembershipId =
+                selectKategori.categoryMembershipId;
             } else {
               let createPackage = await tblCategoryMemberships.create({
                 categoryMembership: element.categoryMembership,
@@ -1224,15 +1567,19 @@ class usersController {
             // console.log("MASUK 2.1", data.member[i].idMember)
             let condition = [{ username: data.member[i].username }];
 
-            if (data.member[i].noKtp) condition.push({ noKtp: data.member[i].noKtp });
-            if (data.member[i].email) condition.push({ email: data.member[i].email });
+            if (data.member[i].noKtp)
+              condition.push({ noKtp: data.member[i].noKtp });
+            if (data.member[i].email)
+              condition.push({ email: data.member[i].email });
 
             let checkMember1 = await tblUser.findOne({
               where: {
                 [Op.or]: condition,
               },
             });
-            let checkMember2 = await tblMember.findByPk(data.member[i].idMember);
+            let checkMember2 = await tblMember.findByPk(
+              data.member[i].idMember
+            );
 
             // console.log("MASUK 2.2", data.member[i].idMember)
 
@@ -1240,7 +1587,8 @@ class usersController {
               // console.log('email', data.member[i].email);
               // console.log('username', data.member[i].username);
               if (checkMember1) console.log("checkMember1", condition);
-              if (checkMember2) console.log("checkMember2", data.member[i].idMember);
+              if (checkMember2)
+                console.log("checkMember2", data.member[i].idMember);
               idMemberError.push(data.member[i].idMember);
             } else {
               let createMember;
@@ -1248,18 +1596,27 @@ class usersController {
               let newUser = {
                 fullname: capitalize(data.member[i].namaLengkap),
                 nickname: capitalize(data.member[i].namaPanggilan),
-                noKtp: data.member[i].noKtp ? String(data.member[i].noKtp) : "000" + data.member[i].username,
+                noKtp: data.member[i].noKtp
+                  ? String(data.member[i].noKtp)
+                  : "000" + data.member[i].username,
                 avatar: "/uploads/icon_user.png",
-                email: data.member[i].email || data.member[i].username + "@email.com",
+                email:
+                  data.member[i].email ||
+                  data.member[i].username + "@email.com",
                 gender: data.member[i].kelamin,
                 igAccount: data.member[i].akunIg,
-                haveWhatsapp: data.member[i].adaWhatsapp && data.member[i].adaWhatsapp.toLowerCase() === "iya" ? 1 : 0,
+                haveWhatsapp:
+                  data.member[i].adaWhatsapp &&
+                  data.member[i].adaWhatsapp.toLowerCase() === "iya"
+                    ? 1
+                    : 0,
 
                 roleId: 2,
 
                 username: data.member[i].username,
               };
-              if (data.member[i].tanggalLahir) newUser.dateOfBirth = new Date(data.member[i].tanggalLahir);
+              if (data.member[i].tanggalLahir)
+                newUser.dateOfBirth = new Date(data.member[i].tanggalLahir);
 
               let noHP = "" + data.member[i].nomorHp;
               if (Number(noHP[0]) === 0) {
@@ -1272,13 +1629,41 @@ class usersController {
 
               if (!data.member[i].nomorHp) newUser.phone = null;
 
-              let pass = `${createDateAsUTC(new Date(data.member[i].tanggalLahir)).getDate() < 10 ? `0${createDateAsUTC(new Date(data.member[i].tanggalLahir)).getDate()}` : createDateAsUTC(new Date(data.member[i].tanggalLahir)).getDate()}${
-                createDateAsUTC(new Date(data.member[i].tanggalLahir)).getMonth() + 1 < 10 ? `0${createDateAsUTC(new Date(data.member[i].tanggalLahir)).getMonth() + 1}` : createDateAsUTC(new Date(data.member[i].tanggalLahir)).getMonth() + 1
-              }${createDateAsUTC(new Date(data.member[i].tanggalLahir)).getFullYear()}`;
+              let pass = `${
+                createDateAsUTC(
+                  new Date(data.member[i].tanggalLahir)
+                ).getDate() < 10
+                  ? `0${createDateAsUTC(
+                      new Date(data.member[i].tanggalLahir)
+                    ).getDate()}`
+                  : createDateAsUTC(
+                      new Date(data.member[i].tanggalLahir)
+                    ).getDate()
+              }${
+                createDateAsUTC(
+                  new Date(data.member[i].tanggalLahir)
+                ).getMonth() +
+                  1 <
+                10
+                  ? `0${
+                      createDateAsUTC(
+                        new Date(data.member[i].tanggalLahir)
+                      ).getMonth() + 1
+                    }`
+                  : createDateAsUTC(
+                      new Date(data.member[i].tanggalLahir)
+                    ).getMonth() + 1
+              }${createDateAsUTC(
+                new Date(data.member[i].tanggalLahir)
+              ).getFullYear()}`;
 
               newUser.password = hash(pass);
 
-              if (data.member[i].status && (data.member[i].status.toLowerCase() === "aktif" || data.member[i].status.toLowerCase() === "beku")) {
+              if (
+                data.member[i].status &&
+                (data.member[i].status.toLowerCase() === "aktif" ||
+                  data.member[i].status.toLowerCase() === "beku")
+              ) {
                 newUser.flagActive = 1;
               } else {
                 newUser.flagActive = 0;
@@ -1289,8 +1674,16 @@ class usersController {
                 let newMember = {
                   memberId: data.member[i].idMember,
                   userId: createUser.null,
-                  activeDate: data.member[i].tanggalAktifasiMember ? createDateAsUTC(new Date(data.member[i].tanggalAktifasiMember)) : null,
-                  activeExpired: data.member[i].tanggalKadarluasaMember ? createDateAsUTC(new Date(data.member[i].tanggalKadarluasaMember)) : null,
+                  activeDate: data.member[i].tanggalAktifasiMember
+                    ? createDateAsUTC(
+                        new Date(data.member[i].tanggalAktifasiMember)
+                      )
+                    : null,
+                  activeExpired: data.member[i].tanggalKadarluasaMember
+                    ? createDateAsUTC(
+                        new Date(data.member[i].tanggalKadarluasaMember)
+                      )
+                    : null,
                   ptSession: data.member[i].sesiPT || 0,
                   cardImage: "",
                   packageMembershipId: data.member[i].paketMembership,
@@ -1301,23 +1694,36 @@ class usersController {
                   packagePTId: data.member[i].paketPT || "",
                 };
 
-                if (data.member[i].status && data.member[i].status.toLowerCase() === "beku") {
+                if (
+                  data.member[i].status &&
+                  data.member[i].status.toLowerCase() === "beku"
+                ) {
                   newMember.isFreeze = 1;
-                  newMember.freezeDate = createDateAsUTC(new Date(data.member[i].tanggalBeku));
+                  newMember.freezeDate = createDateAsUTC(
+                    new Date(data.member[i].tanggalBeku)
+                  );
                 }
 
                 createMember = await tblMember.create(newMember);
 
                 let nameImageCard = data.member[i].idMember;
 
-                await QRCode.toFile(`./qr/${nameImageCard}.png`, `${nameImageCard}`, {
-                  color: {
-                    dark: "#000",
-                    light: "#FFF", //background
-                  },
-                });
+                await QRCode.toFile(
+                  `./qr/${nameImageCard}.png`,
+                  `${nameImageCard}`,
+                  {
+                    color: {
+                      dark: "#000",
+                      light: "#FFF", //background
+                    },
+                  }
+                );
 
-                if (createMember) await tblMember.update({ cardImage: `/qr/${nameImageCard}.png` }, { where: { memberId: nameImageCard } });
+                if (createMember)
+                  await tblMember.update(
+                    { cardImage: `/qr/${nameImageCard}.png` },
+                    { where: { memberId: nameImageCard } }
+                  );
                 console.log("Sukses", data.member[i].username);
               }
             }
@@ -1336,7 +1742,10 @@ class usersController {
           try {
             let checkStaff1 = tblUser.findOne({
               where: {
-                [Op.or]: [{ email: element.email }, { username: element.username }],
+                [Op.or]: [
+                  { email: element.email },
+                  { username: element.username },
+                ],
               },
             });
             let checkStaff2 = tblStaff.findOne({
@@ -1359,7 +1768,8 @@ class usersController {
                 email: element.email,
                 gender: element.kelamin,
                 igAccount: element.akunIg,
-                haveWhatsapp: element.adaWhatsapp.toLowerCase() === "iya" ? 1 : 0,
+                haveWhatsapp:
+                  element.adaWhatsapp.toLowerCase() === "iya" ? 1 : 0,
 
                 flagActive: 1,
 
@@ -1375,12 +1785,20 @@ class usersController {
                 newUser.phone = "62" + noHP;
               }
 
-              let roleUser = await roles.find((role) => role.role.toLowerCase() === element.role.toLowerCase());
+              let roleUser = await roles.find(
+                (role) => role.role.toLowerCase() === element.role.toLowerCase()
+              );
 
               newUser.roleId = roleUser.roleId;
 
-              let pass = `${element.tanggalLahir.getDate() > 10 ? element.tanggalLahir.getDate() : `0${element.tanggalLahir.getDate()}`}${
-                element.tanggalLahir.getMonth() + 1 > 10 ? element.tanggalLahir.getMonth() + 1 : `0${element.tanggalLahir.getMonth() + 1}`
+              let pass = `${
+                element.tanggalLahir.getDate() > 10
+                  ? element.tanggalLahir.getDate()
+                  : `0${element.tanggalLahir.getDate()}`
+              }${
+                element.tanggalLahir.getMonth() + 1 > 10
+                  ? element.tanggalLahir.getMonth() + 1
+                  : `0${element.tanggalLahir.getMonth() + 1}`
               }${element.tanggalLahir.getFullYear()}`;
 
               newUser.password = hash(pass);
@@ -1398,14 +1816,22 @@ class usersController {
 
               let nameImageCard = createStaff.null;
 
-              await QRCode.toFile(`./qr/${nameImageCard}.png`, `${nameImageCard}`, {
-                color: {
-                  dark: "#000",
-                  light: "#FFF", //background
-                },
-              });
+              await QRCode.toFile(
+                `./qr/${nameImageCard}.png`,
+                `${nameImageCard}`,
+                {
+                  color: {
+                    dark: "#000",
+                    light: "#FFF", //background
+                  },
+                }
+              );
 
-              if (createStaff) await tblStaffs.update({ cardImage: `/qr/${nameImageCard}.png` }, { where: { userId: createStaff.userId } });
+              if (createStaff)
+                await tblStaffs.update(
+                  { cardImage: `/qr/${nameImageCard}.png` },
+                  { where: { userId: createStaff.userId } }
+                );
             }
           } catch (error) {
             console.log(createDateAsUTC(new Date()), error);
@@ -1472,21 +1898,40 @@ class usersController {
 
         await revenue.forEach((x) => {
           let updateRevenueData;
-          if (moment(x.dateActiveMembership).format("YYYY-MM-DD") < moment().format("YYYY-MM-DD")) {
+          if (
+            moment(x.dateActiveMembership).format("YYYY-MM-DD") <
+            moment().format("YYYY-MM-DD")
+          ) {
             updateRevenueData = {
               activeMembershipExpired: createDateAsUTC(new Date()),
               status: "CLOSED",
-              pending_saldo: x.debit ? x.debit - x.kredit : x.pending_saldo - x.kredit,
+              pending_saldo: x.debit
+                ? x.debit - x.kredit
+                : x.pending_saldo - x.kredit,
             };
           } else {
             updateRevenueData = {
-              dateActiveMembership: createDateAsUTC(new Date(moment(x.dateActiveMembership).add(closeDuration, "days").format("YYYY-MM-DD"))),
-              activeMembershipExpired: createDateAsUTC(new Date(moment(x.activeMembershipExpired).add(closeDuration, "days").format("YYYY-MM-DD"))),
+              dateActiveMembership: createDateAsUTC(
+                new Date(
+                  moment(x.dateActiveMembership)
+                    .add(closeDuration, "days")
+                    .format("YYYY-MM-DD")
+                )
+              ),
+              activeMembershipExpired: createDateAsUTC(
+                new Date(
+                  moment(x.activeMembershipExpired)
+                    .add(closeDuration, "days")
+                    .format("YYYY-MM-DD")
+                )
+              ),
               status: "PENDING",
             };
           }
 
-          promises.push(tblRevenue.update(updateRevenueData, { where: { id: x.id } }));
+          promises.push(
+            tblRevenue.update(updateRevenueData, { where: { id: x.id } })
+          );
         });
 
         let cutiRevenue = {
@@ -1498,7 +1943,10 @@ class usersController {
           times: 0,
           debit: 0,
           kredit: 0,
-          saldo_member: revenue.length ? revenue[revenue.length - 1].saldo_member - revenue[revenue.length - 1].kredit : cekSisaHari(member.activeExpired),
+          saldo_member: revenue.length
+            ? revenue[revenue.length - 1].saldo_member -
+              revenue[revenue.length - 1].kredit
+            : cekSisaHari(member.activeExpired),
           status: "CLOSED",
           keterangan: "Megafit Tutup",
           price: 0,
@@ -1557,14 +2005,31 @@ class usersController {
     try {
       let exeUpdate, newData;
       if (req.query["active-member"] === "true") {
-        exeUpdate = await tblMember.update({ activeDate: createDateAsUTC(new Date()) }, { where: { userId: req.params.id } });
+        exeUpdate = await tblMember.update(
+          { activeDate: createDateAsUTC(new Date()) },
+          { where: { userId: req.params.id } }
+        );
       } else if (req.query["select-pt"] === "true") {
-        exeUpdate = await tblMember.update({ ptId: req.body.ptId }, { where: { memberId: req.params.id } });
+        exeUpdate = await tblMember.update(
+          { ptId: req.body.ptId },
+          { where: { memberId: req.params.id } }
+        );
       } else if (req.query["first-checkin"] === "true") {
         newData = {
-          fullname: req.body.fullname,
+          fullname: capitalize(req.body.fullname),
           noKtp: req.body.noKtp,
+          dateOfBirth: req.body.dateOfBirth,
         };
+        if (req.body.noKtp) {
+          const checkingUserKtp = await tblUser.findOne({
+            where: {
+              noKtp: req.body.noKtp,
+            },
+          });
+
+          if (checkingUserKtp)
+            return res.status(409).json({ message: "ktp salah" });
+        }
         exeUpdate = await tblUser.update(newData, {
           where: { userId: req.params.id },
         });
@@ -1588,14 +2053,21 @@ class usersController {
         let freezeUpdate = {
           hasSeenSdkFreeze: true,
           isFreeze: req.body.isFreeze,
-          freezeDate: req.body.freezeDate || req.body.freezeDate !== undefined ? req.body.freezeDate : foundMember.freezeDate,
+          freezeDate:
+            req.body.freezeDate || req.body.freezeDate !== undefined
+              ? req.body.freezeDate
+              : foundMember.freezeDate,
           unfreezeDate: !req.body.isFreeze ? createDateAsUTC(new Date()) : null,
         };
 
         let revenueData;
         let cutiRevenue;
 
-        if (foundMember.freezeDate && !req.body.isFreeze && foundMember.isLeave) {
+        if (
+          foundMember.freezeDate &&
+          !req.body.isFreeze &&
+          foundMember.isLeave
+        ) {
           revenueData = await tblRevenue.findAll({
             where: {
               [Op.and]: [
@@ -1639,7 +2111,16 @@ class usersController {
             order: [["activeMembershipExpired", "ASC"]],
           });
 
-          freezeUpdate.leaveDate = createDateAsUTC(new Date(moment().subtract(cekSisaHari(foundMember.freezeDate, foundMember.leaveDate), "days").format("YYYY-MM-DD")));
+          freezeUpdate.leaveDate = createDateAsUTC(
+            new Date(
+              moment()
+                .subtract(
+                  cekSisaHari(foundMember.freezeDate, foundMember.leaveDate),
+                  "days"
+                )
+                .format("YYYY-MM-DD")
+            )
+          );
         } else {
           revenueData = await tblRevenue.findAll({
             where: {
@@ -1678,7 +2159,19 @@ class usersController {
         }
 
         if (foundMember.freezeDate && !req.body.isFreeze) {
-          freezeUpdate.activeExpired = createDateAsUTC(new Date(moment().add(cekSisaHari(foundMember.activeExpired, foundMember.freezeDate), "days").format("YYYY-MM-DD")));
+          freezeUpdate.activeExpired = createDateAsUTC(
+            new Date(
+              moment()
+                .add(
+                  cekSisaHari(
+                    foundMember.activeExpired,
+                    foundMember.freezeDate
+                  ),
+                  "days"
+                )
+                .format("YYYY-MM-DD")
+            )
+          );
         }
 
         let promises = [];
@@ -1692,10 +2185,19 @@ class usersController {
           let newCutiRevenueData = {
             ...cutiRevenue.dataValues,
             dateActiveMembership: createDateAsUTC(new Date()),
-            activeMembershipExpired: createDateAsUTC(new Date(moment().add(cutiRevenue.pending_saldo, "days").format("YYYY-MM-DD"))),
+            activeMembershipExpired: createDateAsUTC(
+              new Date(
+                moment()
+                  .add(cutiRevenue.pending_saldo, "days")
+                  .format("YYYY-MM-DD")
+              )
+            ),
             debit: 0,
             kredit: 0,
-            keterangan: cutiRevenue.keterangan.split(" ")[0] === "Terusan" ? cutiRevenue.keterangan : "Terusan" + " " + cutiRevenue.keterangan,
+            keterangan:
+              cutiRevenue.keterangan.split(" ")[0] === "Terusan"
+                ? cutiRevenue.keterangan
+                : "Terusan" + " " + cutiRevenue.keterangan,
             status: "OPEN",
             dateActivePT: null,
             activePtExpired: null,
@@ -1719,8 +2221,22 @@ class usersController {
           await revenueData.forEach((x) => {
             if (x.status === "PENDING") {
               updateRevenueData = {
-                dateActiveMembership: createDateAsUTC(new Date(moment(x.dateActiveMembership).add(cekSisaHari(new Date(), foundMember.freezeDate), "days"))),
-                activeMembershipExpired: createDateAsUTC(new Date(moment(x.activeMembershipExpired).add(cekSisaHari(new Date(), foundMember.freezeDate), "days"))),
+                dateActiveMembership: createDateAsUTC(
+                  new Date(
+                    moment(x.dateActiveMembership).add(
+                      cekSisaHari(new Date(), foundMember.freezeDate),
+                      "days"
+                    )
+                  )
+                ),
+                activeMembershipExpired: createDateAsUTC(
+                  new Date(
+                    moment(x.activeMembershipExpired).add(
+                      cekSisaHari(new Date(), foundMember.freezeDate),
+                      "days"
+                    )
+                  )
+                ),
               };
             } else {
               updateRevenueData = {
@@ -1730,11 +2246,18 @@ class usersController {
               let newRevenueData = {
                 ...x.dataValues,
                 dateActiveMembership: createDateAsUTC(new Date()),
-                activeMembershipExpired: createDateAsUTC(new Date(moment().add(x.pending_saldo, "days").format("YYYY-MM-DD"))),
+                activeMembershipExpired: createDateAsUTC(
+                  new Date(
+                    moment().add(x.pending_saldo, "days").format("YYYY-MM-DD")
+                  )
+                ),
                 debit: 0,
                 kredit: 0,
                 status: "OPEN",
-                keterangan: x.keterangan.split(" ")[0] === "Terusan" ? x.keterangan : "Terusan" + " " + x.keterangan,
+                keterangan:
+                  x.keterangan.split(" ")[0] === "Terusan"
+                    ? x.keterangan
+                    : "Terusan" + " " + x.keterangan,
                 saldo_member: x.saldo_member - x.kredit,
                 dateActivePT: null,
                 activePtExpired: null,
@@ -1749,7 +2272,9 @@ class usersController {
               promises.push(tblRevenue.create(newRevenueData));
             }
 
-            promises.push(tblRevenue.update(updateRevenueData, { where: { id: x.id } }));
+            promises.push(
+              tblRevenue.update(updateRevenueData, { where: { id: x.id } })
+            );
           });
         }
 
@@ -1778,7 +2303,10 @@ class usersController {
           });
           // TOLAK KALO DATA SUDAH ADA
           if (checkDataExist.length) {
-            await tblUser.update({ isDataConflict: true }, { where: { userId: req.user.userId } });
+            await tblUser.update(
+              { isDataConflict: true },
+              { where: { userId: req.user.userId } }
+            );
             throw { name: "unauthorized" };
           } else {
             // DATA TIDAK ADA
@@ -1808,20 +2336,34 @@ class usersController {
         } else {
           throw { name: "badPassword" };
         }
-      } else if (req.query["reset-password"] === "true") {
-        // Change password
+      } else if (req.query["change-username"] === "true") {
+        // Change username
         newData = {
-          password: hash(req.body.password),
+          username: req.body.username,
         };
-
+        if (!req.body.username) throw { name: "notFound" };
         exeUpdate = await tblUser.update(newData, {
           where: { userId: req.user.userId },
         });
+      } else if (req.query["reset-password"] === "true") {
+        // Change password
+        newData = {
+          password: hashPass(req.body.password),
+        };
+
+        exeUpdate = await tblUser.update(newData, {
+          where: { userId: req.params.id },
+        });
       } else if (req.query["data-size"] === "true") {
         //Input Data Size
-        let member = await tblMember.findOne({ where: { userId: req.params.id } });
+        let member = await tblMember.findOne({
+          where: { userId: req.params.id },
+        });
 
-        await tblMember.update({ hasConfirmTermAndCondition: true }, { where: { memberId: member.memberId } });
+        await tblMember.update(
+          { hasConfirmTermAndCondition: true },
+          { where: { memberId: member.memberId } }
+        );
 
         let oldData = await tblDataSizeMember.findOne({
           where: { memberId: member.memberId },
@@ -1829,52 +2371,197 @@ class usersController {
         });
 
         let newData = {
-          umur: Number(req.body.umur) !== 0 ? req.body.umur : oldData && oldData.umur ? oldData.umur : 0,
-          height: Number(req.body.height) !== 0 ? req.body.height : oldData && oldData.height ? oldData.height : 0,
-          weight: Number(req.body.weight) !== 0 ? req.body.weight : oldData && oldData.weight ? oldData.weight : 0,
-          triceps: Number(req.body.triceps) !== 0 ? req.body.triceps : oldData && oldData.triceps ? oldData.triceps : 0,
-          dada: Number(req.body.dada) !== 0 ? req.body.dada : oldData && oldData.dada ? oldData.dada : 0,
-          perut: Number(req.body.perut) !== 0 ? req.body.perut : oldData && oldData.perut ? oldData.perut : 0,
-          pinggul: Number(req.body.pinggul) !== 0 ? req.body.pinggul : oldData && oldData.pinggul ? oldData.pinggul : 0,
-          pinggang: Number(req.body.pinggang) !== 0 ? req.body.pinggang : oldData && oldData.pinggang ? oldData.pinggang : 0,
-          paha: Number(req.body.paha) !== 0 ? req.body.paha : oldData && oldData.paha ? oldData.paha : 0,
-          targetWeight: +req.body.targetWeight !== 0 ? +req.body.targetWeight : oldData && oldData.targetWeight ? oldData.targetWeight : 0,
-          targetTriceps: +req.body.targetTriceps !== 0 ? +req.body.targetTriceps : oldData && oldData.targetTriceps ? oldData.targetTriceps : 0,
-          targetDada: +req.body.targetDada !== 0 ? +req.body.targetDada : oldData && oldData.targetDada ? oldData.targetDada : 0,
-          targetPerut: +req.body.targetPerut !== 0 ? +req.body.targetPerut : oldData && oldData.targetPerut ? oldData.targetPerut : 0,
-          targetPinggul: +req.body.targetPinggul !== 0 ? +req.body.targetPinggul : oldData && oldData.targetPinggul ? oldData.targetPinggul : 0,
-          targetPinggang: +req.body.targetPinggang !== 0 ? +req.body.targetPinggang : oldData && oldData.targetPinggang ? oldData.targetPinggang : 0,
-          targetPaha: +req.body.targetPaha !== 0 ? +req.body.targetPaha : oldData && oldData.targetPaha ? oldData.targetPaha : 0,
+          umur:
+            Number(req.body.umur) !== 0
+              ? req.body.umur
+              : oldData && oldData.umur
+              ? oldData.umur
+              : 0,
+          height:
+            Number(req.body.height) !== 0
+              ? req.body.height
+              : oldData && oldData.height
+              ? oldData.height
+              : 0,
+          weight:
+            Number(req.body.weight) !== 0
+              ? req.body.weight
+              : oldData && oldData.weight
+              ? oldData.weight
+              : 0,
+          triceps:
+            Number(req.body.triceps) !== 0
+              ? req.body.triceps
+              : oldData && oldData.triceps
+              ? oldData.triceps
+              : 0,
+          dada:
+            Number(req.body.dada) !== 0
+              ? req.body.dada
+              : oldData && oldData.dada
+              ? oldData.dada
+              : 0,
+          perut:
+            Number(req.body.perut) !== 0
+              ? req.body.perut
+              : oldData && oldData.perut
+              ? oldData.perut
+              : 0,
+          pinggul:
+            Number(req.body.pinggul) !== 0
+              ? req.body.pinggul
+              : oldData && oldData.pinggul
+              ? oldData.pinggul
+              : 0,
+          pinggang:
+            Number(req.body.pinggang) !== 0
+              ? req.body.pinggang
+              : oldData && oldData.pinggang
+              ? oldData.pinggang
+              : 0,
+          paha:
+            Number(req.body.paha) !== 0
+              ? req.body.paha
+              : oldData && oldData.paha
+              ? oldData.paha
+              : 0,
+          targetWeight:
+            +req.body.targetWeight !== 0
+              ? +req.body.targetWeight
+              : oldData && oldData.targetWeight
+              ? oldData.targetWeight
+              : 0,
+          targetTriceps:
+            +req.body.targetTriceps !== 0
+              ? +req.body.targetTriceps
+              : oldData && oldData.targetTriceps
+              ? oldData.targetTriceps
+              : 0,
+          targetDada:
+            +req.body.targetDada !== 0
+              ? +req.body.targetDada
+              : oldData && oldData.targetDada
+              ? oldData.targetDada
+              : 0,
+          targetPerut:
+            +req.body.targetPerut !== 0
+              ? +req.body.targetPerut
+              : oldData && oldData.targetPerut
+              ? oldData.targetPerut
+              : 0,
+          targetPinggul:
+            +req.body.targetPinggul !== 0
+              ? +req.body.targetPinggul
+              : oldData && oldData.targetPinggul
+              ? oldData.targetPinggul
+              : 0,
+          targetPinggang:
+            +req.body.targetPinggang !== 0
+              ? +req.body.targetPinggang
+              : oldData && oldData.targetPinggang
+              ? oldData.targetPinggang
+              : 0,
+          targetPaha:
+            +req.body.targetPaha !== 0
+              ? +req.body.targetPaha
+              : oldData && oldData.targetPaha
+              ? oldData.targetPaha
+              : 0,
           memberId: member.memberId,
         };
 
         exeUpdate = await tblDataSizeMember.create(newData);
       } else if (req.query["update-staff"] === "true") {
-        exeUpdate = await tblStaff.update({available: req.body.available}, {
-          where: { userId: req.params.id }
-        })
+        exeUpdate = await tblStaff.update(
+          { available: req.body.available },
+          {
+            where: { userId: req.params.id },
+          }
+        );
       } else {
+        const data = await tblUser.findByPk(req.params.id, {
+          include: { model: tblMember },
+        });
+
         let newUserData = {
           username: req.body.username,
-          fullname: req.body.fullname,
-          nickname: req.body.nickname,
+          fullname: capitalize(req.body.fullname),
+          nickname: capitalize(req.body.nickname),
           noKtp: req.body.noKtp,
           email: req.body.email,
           gender: req.body.gender,
           igAccount: req.body.igAccount,
           haveWhatsapp: req.body.haveWhatsapp,
-          flagActive: new Date(req.body.activeExpired) >= createDateAsUTC(new Date()) ? true : false,
+          flagActive:
+            new Date(req.body.activeExpired) >= createDateAsUTC(new Date())
+              ? true
+              : false,
         };
         if (req.body.roleId) newUserData.roleId = req.body.roleId;
-        if (req.body.dateOfBirth) newUserData.dateOfBirth = new Date(req.body.dateOfBirth);
+        if (req.body.dateOfBirth)
+          newUserData.dateOfBirth = new Date(req.body.dateOfBirth);
         if (Number(req.body.phone[0]) === 0) {
-          newUserData.phone = "62" + req.body.phone.slice(1, req.body.phone.length);
+          newUserData.phone =
+            "62" + req.body.phone.slice(1, req.body.phone.length);
         } else if (Number(req.body.phone[0]) === 8) {
           newUserData.phone = "62" + req.body.phone;
         } else if (Number(req.body.phone.slice(0, 2)) === 62) {
           newUserData.phone = req.body.phone;
         }
-        if (req.body.password) newUserData.password = hashPass(req.body.password);
+        if (req.body.password)
+          newUserData.password = hashPass(req.body.password);
+
+        if (req.body.username) {
+          const checkingUserUsername = await tblUser.findOne({
+            where: {
+              [Op.and]: [
+                {
+                  username: req.body.username,
+                },
+                {
+                  userId: { [Op.not]: data.userId },
+                },
+              ],
+            },
+          });
+          if (checkingUserUsername)
+            return res.status(409).json({ message: "username salah" });
+        }
+
+        if (req.body.email) {
+          const checkingUserEmail = await tblUser.findOne({
+            where: {
+              [Op.and]: [
+                {
+                  email: req.body.email,
+                },
+                {
+                  userId: { [Op.not]: data.userId },
+                },
+              ],
+            },
+          });
+          if (checkingUserEmail)
+            return res.status(409).json({ message: "emailmu salah" });
+        }
+
+        if (req.body.noKtp) {
+          const checkingUserKtp = await tblUser.findOne({
+            where: {
+              [Op.and]: [
+                {
+                  noKtp: req.body.noKtp,
+                },
+                {
+                  userId: { [Op.not]: data.userId },
+                },
+              ],
+            },
+          });
+          if (checkingUserKtp)
+            return res.status(409).json({ message: "ktp salah" });
+        }
+
         exeUpdate = await tblUser.update(newUserData, {
           where: { userId: req.params.id },
         });
@@ -1882,21 +2569,34 @@ class usersController {
         if (req.body.activeExpired) {
           await tblMember.update(
             {
-              activeExpired: req.body.activeExpired === "null" || !req.body.activeExpired ? null : createDateAsUTC(new Date(req.body.activeExpired)),
-              activeDate: req.body.activeDate === "null" || !req.body.activeDate ? null : createDateAsUTC(new Date(req.body.activeDate)),
+              activeExpired:
+                req.body.activeExpired === "null" || !req.body.activeExpired
+                  ? null
+                  : createDateAsUTC(new Date(req.body.activeExpired)),
+              activeDate:
+                req.body.activeDate === "null" || !req.body.activeDate
+                  ? null
+                  : createDateAsUTC(new Date(req.body.activeDate)),
               ptId: req.body.ptId === "null" ? null : req.body.ptId,
-              packageMembershipId: req.body.packageMembershipId === "null" || !req.body.packageMembershipId ? null : req.body.packageMembershipId,
+              packageMembershipId:
+                req.body.packageMembershipId === "null" ||
+                !req.body.packageMembershipId
+                  ? null
+                  : req.body.packageMembershipId,
               memberId: req.body.memberId,
               ptSession: +req.body.ptSession,
-              freezeDate: req.body.isFreeze === "true" ? req.body.freezeDate : null,
-              isFreeze: req.body.isFreeze === "true" ? req.body.isFreeze : false,
+              freezeDate: data.tblMember.freezeDate ?? req.body.freezeDate,
+              isFreeze: data.tblMember.isFreeze ?? req.body.isFreeze | false,
             },
             { where: { userId: req.params.id } }
           );
         }
 
         if (req.body.NIK || req.body.canPTOnline) {
-          await tblStaff.update({ NIK: req.body.NIK, canPTOnline: req.body.canPTOnline }, { where: { userId: req.params.id } });
+          await tblStaff.update(
+            { NIK: req.body.NIK, canPTOnline: req.body.canPTOnline },
+            { where: { userId: req.params.id } }
+          );
         }
       }
       let dataReturn = await tblUser.findByPk(req.params.id, {
@@ -1914,7 +2614,8 @@ class usersController {
         ],
       });
 
-      if (exeUpdate) res.status(200).json({ message: "Success", data: dataReturn });
+      if (exeUpdate)
+        res.status(200).json({ message: "Success", data: dataReturn });
     } catch (error) {
       next(error);
     }
@@ -1961,6 +2662,17 @@ function cekSisaHari(args, args2) {
   let b = moment(args, "YYYY-MM-DD");
 
   return b.diff(a, "days"); //TODO ex: 28-11-2022 - now Date()
+}
+
+function generateOTP() {
+  // Declare a digits variable
+  // which stores all digits
+  var digits = "0123456789";
+  let OTP = "";
+  for (let i = 0; i < 4; i++) {
+    OTP += digits[Math.floor(Math.random() * 10)];
+  }
+  return OTP;
 }
 
 function capitalize(name) {

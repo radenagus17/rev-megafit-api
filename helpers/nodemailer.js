@@ -1,13 +1,13 @@
 const url = require("url");
 const nodemailer = require("nodemailer");
 
-const baseUrlServer = "http://api-megafit.daffaakbar.com";
-const baseUrlClient = "http://megafitnext.daffaakbar.com";
+const baseUrlServer = "http://209.97.175.174:3000";
+const baseUrlClient = "http://megafit.co.id";
 
 let transporter = nodemailer.createTransport({
   host: "mail.megafit.co.id",
-  port: 456, // 587
-  secure: true, // false
+  port: 587, // 456
+  secure: false, // true
   auth: {
     user: "info@megafit.co.id",
     pass: process.env.EMAIL_PASS,

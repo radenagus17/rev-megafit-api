@@ -1,4 +1,14 @@
-const { tblClassPt, tblUser, tblHistoryPT, tblMember, tblTransaction, tblOrderList, tblPackageMemberships, tblRevenue, tblStaff } = require("../models");
+const {
+  tblClassPt,
+  tblUser,
+  tblHistoryPT,
+  tblMember,
+  tblTransaction,
+  tblOrderList,
+  tblPackageMemberships,
+  tblRevenue,
+  tblStaff,
+} = require("../models");
 const Op = require("sequelize").Op;
 const { getWeek } = require("../helpers/getNumberOfWeek");
 const { createDateAsUTC } = require("../helpers/convertDate");
@@ -56,7 +66,12 @@ class classPtsController {
           where: {
             [Op.or]: [
               {
-                [Op.and]: [{ time: { [Op.gte]: hour } }, { date: { [Op.gte]: Number(req.query.date.slice(8, 10)) } }, { week: getWeek(req.query.date) }, { year: { [Op.gte]: req.query.date.slice(0, 4) } }],
+                [Op.and]: [
+                  { time: { [Op.gte]: hour } },
+                  { date: { [Op.gte]: Number(req.query.date.slice(8, 10)) } },
+                  { week: getWeek(req.query.date) },
+                  { year: { [Op.gte]: req.query.date.slice(0, 4) } },
+                ],
               },
               {
                 [Op.and]: [
@@ -76,7 +91,7 @@ class classPtsController {
             ["time", "ASC"],
           ],
         });
-      } else if(req.query.by_date === "true"){
+      } else if (req.query.by_date === "true") {
         let hour = Number(req.query.hour);
 
         if (hour < 10) hour = `0${hour}:00:00`;
@@ -84,7 +99,12 @@ class classPtsController {
 
         data = await tblClassPt.findAll({
           where: {
-            [Op.and]: [{ time: hour }, { date: Number(req.query.date.slice(8, 10)) }, { week: getWeek(req.query.date) }, { year: req.query.date.slice(0, 4) }],
+            [Op.and]: [
+              { time: hour },
+              { date: Number(req.query.date.slice(8, 10)) },
+              { week: getWeek(req.query.date) },
+              { year: req.query.date.slice(0, 4) },
+            ],
           },
           include: [{ model: tblUser }, { model: tblHistoryPT }],
           order: [
@@ -102,7 +122,10 @@ class classPtsController {
             week: req.query.week,
             year: req.query.year,
           },
-          include: [{ model: tblUser }, { model: tblHistoryPT, include: [{ model: tblUser }] }],
+          include: [
+            { model: tblUser },
+            { model: tblHistoryPT, include: [{ model: tblUser }] },
+          ],
           order: [
             ["year", "ASC"],
             ["month", "ASC"],
@@ -112,7 +135,10 @@ class classPtsController {
         });
       }
       // if(data.length == 0) throw {name: "notFound"}
-     if(data) res.status(200).json({ message: "Success", totalRecord: data.length, data })
+      if (data)
+        res
+          .status(200)
+          .json({ message: "Success", totalRecord: data.length, data });
     } catch (error) {
       next(error);
     }
@@ -175,22 +201,27 @@ class classPtsController {
       });
 
       // destructuring member
-      const {
-        dataValues: {
-          tblStaff: {
-            dataValues: { userId },
-          },
-        },
-      } = member;
+      // const {
+      //   dataValues: {
+      //     tblStaff: {
+      //       dataValues: { userId },
+      //     },
+      //   },
+      // } = member;
 
       if (member.ptSession > 0) {
         let revenue = await tblRevenue.findAll({
           where: {
-            [Op.and]: [{ memberId: member.memberId }, { packagePT: { [Op.not]: null } }, { isDone: { [Op.not]: true } }],
+            [Op.and]: [
+              { memberId: member.memberId },
+              { packagePT: { [Op.not]: null } },
+              { isDone: { [Op.not]: true } },
+            ],
           },
           order: [["id", "ASC"]],
         });
 
+        if (!revenue.length) throw { name: "sessionDone" };
         // let transaction = await checkTransaction(req.user.userId);
 
         // cek data historyPT jika ada yang kembar
@@ -210,51 +241,100 @@ class classPtsController {
         if (cekDataHistory) throw { name: "notFound" };
 
         //* cek data classPtId yang masuk
-        let classPt = await checkClassPtId(req.params.id, userId);
+        // let classPt = await checkClassPtId(req.params.id, userId);
 
         let newData = {
           userId: req.user.userId,
-          classPtId: classPt ?? req.params.id,
+          classPtId: req.params.id,
           transactionId: null,
-          // revenueId: revenue.length ? revenue[0].id : null,
           revenueId: revenue[0].id,
         };
 
         let joinPtClass = await tblHistoryPT.create(newData);
 
-        let dataReturn = await tblClassPt.findByPk(joinPtClass.dataValues.classPtId);
+        let dataReturn = await tblClassPt.findByPk(
+          joinPtClass.dataValues.classPtId
+        );
 
         let updateData = {
           ptSession: member.ptSession - 1,
-          sisaLastPTSession: member.sisaLastPTSession == null ? null : member.sisaLastPTSession - 1 < 0 ? 0 : member.sisaLastPTSession - 1,
-          activeDatePackagePT: member.sisaLastPTSession - 1 < 0 ? createDateAsUTC(new Date(`${dataReturn.year}-${dataReturn.month}-${dataReturn.date}`)) : member.activeDatePackagePT,
+          sisaLastPTSession:
+            member.sisaLastPTSession == null
+              ? null
+              : member.sisaLastPTSession - 1 < 0
+              ? 0
+              : member.sisaLastPTSession - 1,
+          activeDatePackagePT:
+            member.sisaLastPTSession - 1 < 0
+              ? createDateAsUTC(
+                  new Date(
+                    `${dataReturn.year}-${dataReturn.month}-${dataReturn.date}`
+                  )
+                )
+              : member.activeDatePackagePT,
         };
 
-        await tblMember.update(updateData, { where: { userId: req.user.userId } });
+        await tblMember.update(updateData, {
+          where: { userId: req.user.userId },
+        });
 
         if (revenue.length) {
           let revenueData;
           if (revenue[0].PTTerpakai && revenue[0].isDone === false) {
             revenueData = {
               PTTerpakai: revenue[0].PTTerpakai + 1,
-              isDone: revenue[0].PTTerpakai + 1 === revenue[0].timesPT ? true : false,
-              activePtExpired: revenue[0].PTTerpakai + 1 === revenue[0].timesPT ? createDateAsUTC(new Date(`${dataReturn.year}-${dataReturn.month}-${dataReturn.date}`)) : null,
+              isDone:
+                revenue[0].PTTerpakai + 1 === revenue[0].timesPT ? true : false,
+              activePtExpired:
+                revenue[0].PTTerpakai + 1 === revenue[0].timesPT
+                  ? createDateAsUTC(
+                      new Date(
+                        `${dataReturn.year}-${dataReturn.month}-${dataReturn.date}`
+                      )
+                    )
+                  : null,
             };
-          } else if (!revenue[0].dateActivePT && !revenue[0].PTTerpakai && revenue[0].isDone === null) {
+          } else if (
+            !revenue[0].dateActivePT &&
+            !revenue[0].PTTerpakai &&
+            revenue[0].isDone === null
+          ) {
             revenueData = {
-              dateActivePT: createDateAsUTC(new Date(`${dataReturn.year}-${dataReturn.month}-${dataReturn.date}`)),
+              dateActivePT: createDateAsUTC(
+                new Date(
+                  `${dataReturn.year}-${dataReturn.month}-${dataReturn.date}`
+                )
+              ),
               PTTerpakai: 1,
               isDone: false,
             };
           } else if (member.sisaLastPTSession - 1 < 0) {
             revenueData = {
-              dateActivePT: !revenue[0].dateActivePT ? createDateAsUTC(new Date(`${dataReturn.year}-${dataReturn.month}-${dataReturn.date}`)) : revenue[0].dateActivePT,
-              PTTerpakai: !revenue[0].PTTerpakai ? 1 : revenue[0].PTTerpakai + 1,
-              isDone: revenue[0].PTTerpakai + 1 === revenue[0].timesPT ? true : false,
-              activePtExpired: revenue[0].PTTerpakai + 1 === revenue[0].timesPT ? createDateAsUTC(new Date(`${dataReturn.year}-${dataReturn.month}-${dataReturn.date}`)) : null,
+              dateActivePT: !revenue[0].dateActivePT
+                ? createDateAsUTC(
+                    new Date(
+                      `${dataReturn.year}-${dataReturn.month}-${dataReturn.date}`
+                    )
+                  )
+                : revenue[0].dateActivePT,
+              PTTerpakai: !revenue[0].PTTerpakai
+                ? 1
+                : revenue[0].PTTerpakai + 1,
+              isDone:
+                revenue[0].PTTerpakai + 1 === revenue[0].timesPT ? true : false,
+              activePtExpired:
+                revenue[0].PTTerpakai + 1 === revenue[0].timesPT
+                  ? createDateAsUTC(
+                      new Date(
+                        `${dataReturn.year}-${dataReturn.month}-${dataReturn.date}`
+                      )
+                    )
+                  : null,
             };
           }
-          await tblRevenue.update(revenueData, { where: { id: revenue[0].id } });
+          await tblRevenue.update(revenueData, {
+            where: { id: revenue[0].id },
+          });
         }
         res.status(200).json({ message: "Success", data: joinPtClass });
       } else throw { name: "sessionDone" };
@@ -267,31 +347,44 @@ class classPtsController {
     try {
       await tblHistoryPT.destroy({ where: { id: req.params.id } });
 
-      let member = await tblMember.findOne({ where: { userId: req.user.userId } });
+      let member = await tblMember.findOne({
+        where: { userId: req.user.userId },
+      });
       await tblMember.update(
         {
           ptSession: member.ptSession + 1,
-          sisaLastPTSession: member.sisaLastPTSession == null ? null : member.sisaLastPTSession + 1,
-          activeDatePackagePT: member.sisaLastPTSession + 1 === 1 ? null : member.activeDatePackagePT,
+          sisaLastPTSession:
+            member.sisaLastPTSession == null
+              ? null
+              : member.sisaLastPTSession + 1,
+          activeDatePackagePT:
+            member.sisaLastPTSession + 1 === 1
+              ? null
+              : member.activeDatePackagePT,
         },
         { where: { userId: req.user.userId } }
       );
 
       let revenue = await tblRevenue.findAll({
         where: {
-          [Op.and]: [{ memberId: member.memberId }, { packagePT: { [Op.not]: null } }],
+          [Op.and]: [
+            { memberId: member.memberId },
+            { packagePT: { [Op.not]: null } },
+          ],
         },
         order: [["updatedAt", "DESC"]],
       });
 
       let revenueData = {
-        dateActivePT: revenue[0].PTTerpakai - 1 === 0 ? null : revenue[0].dateActivePT,
+        dateActivePT:
+          revenue[0].PTTerpakai - 1 === 0 ? null : revenue[0].dateActivePT,
         PTTerpakai: revenue[0].PTTerpakai - 1,
         isDone: false,
         activePtExpired: null,
       };
 
-      if (revenue.length) await tblRevenue.update(revenueData, { where: { id: revenue[0].id } });
+      if (revenue.length)
+        await tblRevenue.update(revenueData, { where: { id: revenue[0].id } });
 
       res.status(200).json({ message: "Success", idDeleted: req.params.id });
     } catch (error) {

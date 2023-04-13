@@ -69,6 +69,7 @@ module.exports = (sequelize, DataTypes) => {
       agreePromo: DataTypes.BOOLEAN,
       isDataConflict: DataTypes.BOOLEAN,
       first_login: DataTypes.BOOLEAN,
+      OTP: DataTypes.STRING,
     },
     {
       sequelize,
