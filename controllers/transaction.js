@@ -1,10 +1,26 @@
-const { tblUser, tblMember, tblPackageMemberships, tblSubCategoryMembership, tblTransaction, tblOrderList, tblStaff, tblRevenue, tblTempRevenue, tblClasses, tblPackageClasses } = require("../models");
+const {
+  tblUser,
+  tblMember,
+  tblPackageMemberships,
+  tblSubCategoryMembership,
+  tblTransaction,
+  tblOrderList,
+  tblStaff,
+  tblRevenue,
+  tblTempRevenue,
+  tblHistoryPromo,
+  tblPackageClasses,
+} = require("../models");
 const Op = require("sequelize").Op;
 const { createDateAsUTC } = require("../helpers/convertDate");
 const { rememberExtendPackage } = require("../helpers/schedule");
-const { mailOptions, transporter, footerMail } = require("../helpers/nodemailer");
+const {
+  mailOptions,
+  transporter,
+  footerMail,
+} = require("../helpers/nodemailer");
 const axios = require("axios");
-const moment = require("moment")
+const moment = require("moment");
 const xendit = require("../helpers/xendit");
 
 class TransactionController {
@@ -12,13 +28,19 @@ class TransactionController {
     try {
       let created, idTransaction;
       let expiredDate = new Date();
-      if (req.body.packageMembershipId === "VIP" || req.body.packageMembershipId === "NVIP") {
+      if (
+        req.body.packageMembershipId === "VIP" ||
+        req.body.packageMembershipId === "NVIP"
+      ) {
         expiredDate.setHours(new Date().getHours() + 1);
       } else expiredDate.setDate(new Date().getDate() + 1);
 
-      let packageSelected = await tblPackageMemberships.findByPk(req.body.packageMembershipId, {
-        include: [{ model: tblSubCategoryMembership }],
-      });
+      let packageSelected = await tblPackageMemberships.findByPk(
+        req.body.packageMembershipId,
+        {
+          include: [{ model: tblSubCategoryMembership }],
+        }
+      );
       let member = await tblMember.findByPk(req.body.memberId, {
         include: [{ model: tblUser }],
       });
@@ -37,10 +59,16 @@ class TransactionController {
           expiredAt: createDateAsUTC(expiredDate),
         };
         if (
-          (cekSisaHari(member.activeExpired) <= -7 || member.packageMembershipId === "Trial" || member.packageMembershipId === "1DP" || !member.packageMembershipId) &&
-          (req.body.categoryMembershipId === 1 || req.body.categoryMembershipId === 9)
+          (cekSisaHari(member.activeExpired) <= -7 ||
+            member.packageMembershipId === "Trial" ||
+            member.packageMembershipId === "1DP" ||
+            !member.packageMembershipId) &&
+          (req.body.categoryMembershipId === 1 ||
+            req.body.categoryMembershipId === 9)
         ) {
-          updateCart.admPrice = cartExist.admPrice + packageSelected.tblSubCategoryMembership.adminFee;
+          updateCart.admPrice =
+            cartExist.admPrice +
+            packageSelected.tblSubCategoryMembership.adminFee;
           updateCart.amount = updateCart.amount + updateCart.admPrice;
         }
 
@@ -71,11 +99,17 @@ class TransactionController {
         };
 
         if (
-          (cekSisaHari(member.activeExpired) <= -7 || member.packageMembershipId === "Trial" || member.packageMembershipId === "1DP" || !member.packageMembershipId) &&
-          (req.body.categoryMembershipId === 1 || req.body.categoryMembershipId === 9)
+          (cekSisaHari(member.activeExpired) <= -7 ||
+            member.packageMembershipId === "Trial" ||
+            member.packageMembershipId === "1DP" ||
+            !member.packageMembershipId) &&
+          (req.body.categoryMembershipId === 1 ||
+            req.body.categoryMembershipId === 9)
         ) {
-          transactionData.admPrice = packageSelected.tblSubCategoryMembership.adminFee;
-          transactionData.amount = transactionData.amount + transactionData.admPrice;
+          transactionData.admPrice =
+            packageSelected.tblSubCategoryMembership.adminFee;
+          transactionData.amount =
+            transactionData.amount + transactionData.admPrice;
         }
         await tblTransaction.create(transactionData);
 
@@ -170,13 +204,21 @@ class TransactionController {
       });
 
       // SETTING UNIQUE CODE INVOICE
-      let uniqueMonth = new Date().getMonth() + 1 < 10 ? `0${new Date().getMonth() + 1}` : new Date().getMonth() + 1;
-      let code = dataTransaction && dataTransaction.salesInvoice ? +dataTransaction.salesInvoice.slice(9) + 1 : 11;
+      let uniqueMonth =
+        new Date().getMonth() + 1 < 10
+          ? `0${new Date().getMonth() + 1}`
+          : new Date().getMonth() + 1;
+      let code =
+        dataTransaction && dataTransaction.salesInvoice
+          ? +dataTransaction.salesInvoice.slice(9) + 1
+          : 11;
       if (code < 100) code = `00${code}`;
       else if (code < 1000) code = `0${code}`;
 
       // FIX UNIQUE CODE
-      let salesInvoice = `MPSI-${String(new Date().getFullYear()).slice(2)}${uniqueMonth}${code}`;
+      let salesInvoice = `MPSI-${String(new Date().getFullYear()).slice(
+        2
+      )}${uniqueMonth}${code}`;
 
       // CHECK ADA ADMIN FEE ATAU TIDAK
       let adminFee = req.body.cart.find((el) => el.package === "Admin Fee");
@@ -186,20 +228,41 @@ class TransactionController {
         where: { userId: req.user.userId },
       });
 
+      //todo: check transaction and user client for payment (onGoingTransaction)
+      let { transactionId, amount } = await tblTransaction.findOne({
+        where: {
+          memberId: req.body.memberId,
+        },
+        order: [["createdAt", "DESC"]],
+      });
+      let member = await tblMember.findOne({
+        where: { memberId: req.body.memberId },
+        include: { model: tblUser },
+      });
+
       let transactionData = {
         memberId: req.body.memberId,
         salesId: req.body.salesId,
         cashierId: staff.staffId,
         staffId: req.body.methodPayment === "CASHLEZ" ? staff.staffId : null,
         methodPayment: req.body.methodPayment,
-        amount: req.body.amount,
+        amount: member.tblUser.agreePromo ? amount : req.body.amount,
         admPrice: adminFee ? adminFee.price : null,
-        status: req.body.methodPayment === "CASHLEZ" ? "unpaid" : req.body.methodPayment === "EDC" ? "paid" : "transferred",
-        salesInvoice: req.body.methodPayment === "CASHLEZ" ? null : salesInvoice,
+        status:
+          req.body.methodPayment === "CASHLEZ"
+            ? "unpaid"
+            : req.body.methodPayment === "EDC"
+            ? "paid"
+            : "transferred",
+        salesInvoice:
+          req.body.methodPayment === "CASHLEZ" ? null : salesInvoice,
         inputMethod: "POS",
         createdAt: createDateAsUTC(new Date()),
         updatedAt: createDateAsUTC(new Date()),
-        expiredAt: req.body.methodPayment === "CASHLEZ" ? moment(new Date()).add(2, "days").format("YYYY-MM-DD") : null,
+        expiredAt:
+          req.body.methodPayment === "CASHLEZ"
+            ? moment(new Date()).add(2, "days").format("YYYY-MM-DD")
+            : null,
       };
 
       if (req.body.methodPayment === "EDC") {
@@ -236,13 +299,6 @@ class TransactionController {
         });
       else await tblTransaction.create(transactionData);
 
-      let { transactionId } = await tblTransaction.findOne({
-        where: {
-          memberId: req.body.memberId,
-        },
-        order: [["createdAt", "DESC"]],
-      });
-
       // FILTER CART DARI ADMIN FEE
       let fixedCart = req.body.cart.filter((el) => el.packageMembershipId);
 
@@ -253,7 +309,8 @@ class TransactionController {
           promises.push(
             tblOrderList.update(
               {
-                salesInvoice: req.body.methodPayment === "CASHLEZ" ? null : salesInvoice,
+                salesInvoice:
+                  req.body.methodPayment === "CASHLEZ" ? null : salesInvoice,
               },
               { where: { transactionId: req.body.onGoingTransactionId } }
             )
@@ -267,7 +324,8 @@ class TransactionController {
         fixedCart.forEach((el) => {
           orderData.push({
             transactionId,
-            salesInvoice: req.body.methodPayment === "CASHLEZ" ? null : salesInvoice,
+            salesInvoice:
+              req.body.methodPayment === "CASHLEZ" ? null : salesInvoice,
             packageMembershipId: el.packageMembershipId,
             categoryMembershipId: el.categoryMembershipId,
             quantity: 1,
@@ -280,11 +338,6 @@ class TransactionController {
         await tblOrderList.bulkCreate(orderData);
       }
 
-      let member = await tblMember.findOne({
-        where: { memberId: req.body.memberId },
-        include: { model: tblUser },
-      });
-
       let cart = await tblOrderList.findAll({
         where: { transactionId },
         include: { model: tblPackageMemberships },
@@ -296,38 +349,78 @@ class TransactionController {
           leaveDate: createDateAsUTC(new Date(req.body.leaveDate)),
           leaveStatus: req.body.methodPayment === "CASHLEZ" ? "UNPAID" : "PAID",
         };
-        if (req.body.methodPayment === "TRANSFER" || req.body.methodPayment === "TOKOPEDIA" || req.body.methodPayment === "EDC") {
+        if (
+          req.body.methodPayment === "TRANSFER" ||
+          req.body.methodPayment === "TOKOPEDIA" ||
+          req.body.methodPayment === "EDC"
+        ) {
           let paketLeave = cart.find((el) => el.categoryMembershipId === 4);
-          data.activeExpired = createDateAsUTC(new Date(new Date(member.activeExpired).getFullYear(), new Date(member.activeExpired).getMonth(), new Date(member.activeExpired).getDate() + ((paketLeave && paketLeave.times) || 0)));
+          data.activeExpired = createDateAsUTC(
+            new Date(
+              new Date(member.activeExpired).getFullYear(),
+              new Date(member.activeExpired).getMonth(),
+              new Date(member.activeExpired).getDate() +
+                ((paketLeave && paketLeave.times) || 0)
+            )
+          );
         }
-        await tblMember.update(data, { where: { memberId: req.body.memberId } });
+        await tblMember.update(data, {
+          where: { memberId: req.body.memberId },
+        });
       }
 
       // UPDATE DATA
       if (req.body.methodPayment === "EDC") {
-        let paketMember = cart.find((el) => el.categoryMembershipId === 1 || (el.categoryMembershipId === 8) | (el.categoryMembershipId === 9));
+        let paketMember = cart.find(
+          (el) =>
+            el.categoryMembershipId === 1 ||
+            (el.categoryMembershipId === 8) | (el.categoryMembershipId === 9)
+        );
         let paketPT = cart.find((el) => el.categoryMembershipId === 2);
         let paketOnline = cart.find((el) => el.categoryMembershipId === 5);
         let paketLeave = cart.find((el) => el.categoryMembershipId === 4);
         let paketKelas = cart.find((el) => el.categoryMembershipId === 6);
-        let paketPG = cart.find((el) => el.packageMembershipId === "NVIP" || el.packageMembershipId === "VIP");
+        let paketPG = cart.find(
+          (el) =>
+            el.packageMembershipId === "NVIP" ||
+            el.packageMembershipId === "VIP"
+        );
 
         let data = {
           activeExpired:
-            cekSisaHari(member.activeExpired) > 0 && member.packageMembershipId !== "Trial"
+            cekSisaHari(member.activeExpired) > 0 &&
+            member.packageMembershipId !== "Trial"
               ? createDateAsUTC(
                   new Date(
                     new Date(member.activeExpired).getFullYear(),
                     new Date(member.activeExpired).getMonth(),
-                    new Date(member.activeExpired).getDate() + ((paketMember && paketMember.tblPackageMembership.times) || 0) + ((paketLeave && paketLeave.tblPackageMembership.times) || 0)
+                    new Date(member.activeExpired).getDate() +
+                      ((paketMember &&
+                        paketMember.tblPackageMembership.times) ||
+                        0) +
+                      ((paketLeave && paketLeave.tblPackageMembership.times) ||
+                        0)
                   )
                 )
               : paketMember &&
                 createDateAsUTC(
-                  new Date(new Date().getFullYear(), new Date().getMonth(), new Date().getDate() + ((paketMember && paketMember.tblPackageMembership.times) || 0) + ((paketLeave && paketLeave.tblPackageMembership.times) || 0))
+                  new Date(
+                    new Date().getFullYear(),
+                    new Date().getMonth(),
+                    new Date().getDate() +
+                      ((paketMember &&
+                        paketMember.tblPackageMembership.times) ||
+                        0) +
+                      ((paketLeave && paketLeave.tblPackageMembership.times) ||
+                        0)
+                  )
                 ),
-          ptSession: member.ptSession + ((paketPT && paketPT.tblPackageMembership.times) || 0),
-          ptSessionOnline: member.ptSessionOnline + ((paketOnline && paketOnline.tblPackageMembership.times) || 0),
+          ptSession:
+            member.ptSession +
+            ((paketPT && paketPT.tblPackageMembership.times) || 0),
+          ptSessionOnline:
+            member.ptSessionOnline +
+            ((paketOnline && paketOnline.tblPackageMembership.times) || 0),
         };
 
         let revenueData = {
@@ -337,36 +430,56 @@ class TransactionController {
         if (paketMember) {
           if (member.packageMembershipId === "Trial") data.activeDate = null;
           data.packageMembershipId =
-            member.packageMembershipId !== "1DP" && paketMember.tblPackageMembership.packageMembershipId === "1DP" && member.packageMembershipId ? member.packageMembershipId : paketMember.tblPackageMembership.packageMembershipId;
+            member.packageMembershipId !== "1DP" &&
+            paketMember.tblPackageMembership.packageMembershipId === "1DP" &&
+            member.packageMembershipId
+              ? member.packageMembershipId
+              : paketMember.tblPackageMembership.packageMembershipId;
           revenueData.dateActiveMembership = paketLeave
-            ? createDateAsUTC(new Date(moment(new Date(member.activeExpired)).add(30, "days")))
+            ? createDateAsUTC(
+                new Date(moment(new Date(member.activeExpired)).add(30, "days"))
+              )
             : cekSisaHari(member.activeExpired) > 0
             ? createDateAsUTC(new Date(member.activeExpired))
             : createDateAsUTC(new Date());
-          revenueData.price = paketMember.tblPackageMembership.price;
+          revenueData.price = member.tblUser.agreePromo
+            ? paketMember.totalPrice
+            : paketMember.tblPackageMembership.price;
           revenueData.packageBefore = member.packageMembershipId;
-          revenueData.packageAfter = paketMember.tblPackageMembership.packageMembershipId;
+          revenueData.packageAfter =
+            paketMember.tblPackageMembership.packageMembershipId;
           revenueData.times = paketMember.tblPackageMembership.times;
           revenueData.debit = paketMember.tblPackageMembership.times;
           revenueData.activeMembershipExpired = data.activeExpired;
-          revenueData.saldo_member = member.isLeave ? cekSisaHari(data.activeExpired) - (30 - cekSisaCuti(new Date(), new Date(member.leaveDate))) : cekSisaHari(data.activeExpired);
-          revenueData.status = cekSisaHari(member.activeExpired) > 0 || !member.activeDate || member.packageMembershipId === "Trial" ? "PENDING" : "OPEN";
+          revenueData.saldo_member = member.isLeave
+            ? cekSisaHari(data.activeExpired) -
+              (30 - cekSisaCuti(new Date(), new Date(member.leaveDate)))
+            : cekSisaHari(data.activeExpired);
+          revenueData.status =
+            cekSisaHari(member.activeExpired) > 0 ||
+            !member.activeDate ||
+            member.packageMembershipId === "Trial"
+              ? "PENDING"
+              : "OPEN";
           revenueData.keterangan = salesInvoice;
           revenueData.is_event = false;
-
-          await tblUser.update({ flagActive: true }, { where: { userId: member.userId } });
         }
 
         // UPDATE DATA SETELAH PEMBAYARAN
         if (paketMember || paketPT || paketLeave || paketPG) {
-          revenueData.pricePT = paketPT && paketPT.tblPackageMembership.price;
-          revenueData.packagePT = paketPT && paketPT.tblPackageMembership.packageMembershipId;
+          revenueData.pricePT = member.tblUser.agreePromo
+            ? paketPT?.totalPrice
+            : paketPT?.tblPackageMembership?.price;
+          revenueData.packagePT =
+            paketPT && paketPT.tblPackageMembership.packageMembershipId;
           revenueData.timesPT = paketPT && paketPT.tblPackageMembership.times;
           revenueData.keterangan = salesInvoice;
-          data.packagePTId = paketPT && paketPT.tblPackageMembership.packageMembershipId;
+          data.packagePTId =
+            paketPT && paketPT.tblPackageMembership.packageMembershipId;
           data.sisaLastPTSession = paketPT && member.ptSession;
           data.leaveStatus = paketLeave && "PAID";
-          data.PG_Session = paketPG && !member.PG_Session ? 1 : member.PG_Session + 1;
+          data.PG_Session =
+            paketPG && !member.PG_Session ? 1 : member.PG_Session + 1;
           await tblMember.update(data, {
             where: { memberId: member.memberId },
           });
@@ -376,24 +489,38 @@ class TransactionController {
         // for classPackage checkout
         if (paketKelas) {
           let classPackage = await tblPackageClasses.create({
-            expiredDate: createDateAsUTC(new Date(new Date().getFullYear(), new Date().getMonth(), new Date().getDate() + ((paketKelas.tblPackageMembership.times) || 0))
-          ),
-          memberId: member.memberId,
-          subCategoryMembershipId: paketKelas.tblPackageMembership.subCategoryMembershipId,
-          classSession: paketKelas.tblPackageMembership.classUsed,
-          activeDate: createDateAsUTC(new Date())
+            expiredDate: createDateAsUTC(
+              new Date(
+                new Date().getFullYear(),
+                new Date().getMonth(),
+                new Date().getDate() +
+                  (paketKelas.tblPackageMembership.times || 0)
+              )
+            ),
+            memberId: member.memberId,
+            subCategoryMembershipId:
+              paketKelas.tblPackageMembership.subCategoryMembershipId,
+            classSession: paketKelas.tblPackageMembership.classUsed,
+            activeDate: createDateAsUTC(new Date()),
           });
           await tblRevenue.create({
-          memberId: req.body.memberId,
-          keterangan: salesInvoice,
-          dateActiveMembership: createDateAsUTC(new Date()),
-          activeMembershipExpired: classPackage.expiredDate,
-          status: "OPEN",
-          packageBefore: paketKelas.tblPackageMembership.package,
-          times: paketKelas.tblPackageMembership.classUsed,
-          kredit: 0,
-          price: paketKelas.tblPackageMembership.price
+            memberId: req.body.memberId,
+            keterangan: salesInvoice,
+            dateActiveMembership: createDateAsUTC(new Date()),
+            activeMembershipExpired: classPackage.expiredDate,
+            status: "OPEN",
+            packageBefore: paketKelas.tblPackageMembership.package,
+            times: paketKelas.tblPackageMembership.classUsed,
+            kredit: 0,
+            price: paketKelas.tblPackageMembership.price,
           });
+        }
+
+        if (paketMember || paketPT || paketKelas) {
+          await tblUser.update(
+            { agreePromo: false, flagActive: true },
+            { where: { userId: member.userId } }
+          );
         }
       }
 
@@ -474,10 +601,19 @@ class TransactionController {
             order +
             `<div style="display:flex;margin-left:30px;">
 						<div style="width:350px;">
-							<p style="margin:5px;margin-left: 0px;">${element.tblPackageMembership.package} ${element.tblPackageMembership.times} ${element.categoryMembershipId !== 2 || element.categoryMembershipId !== 2 ? "Hari" : "Sesi"}</p>
+							<p style="margin:5px;margin-left: 0px;">${
+                element.tblPackageMembership.package
+              } ${element.tblPackageMembership.times} ${
+              element.categoryMembershipId !== 2 ||
+              element.categoryMembershipId !== 2
+                ? "Hari"
+                : "Sesi"
+            }</p>
 						</div>
 						<div>
-							<p style="margin:5px;margin-left: 0px;">Rp ${convertRupiah(element.totalPrice)}</p>
+							<p style="margin:5px;margin-left: 0px;">Rp ${convertRupiah(
+                element.totalPrice
+              )}</p>
 						</div>
 					</div>`;
         });
@@ -489,7 +625,9 @@ class TransactionController {
 				<p style="font-size: 20px;margin-bottom: 5px;"><b>Terima kasih telah belanja di Megafit</b></p>
 				<p style="margin:0px 0px 10px 0px;color:#91c640">Lebih sedikit kertas, lebih hijau! Pilihan Megarangers membuat dunia lebih baik.</p>
 
-				<p style="margin:15px 0px;"><b>Berikut merupakan detil pembelian di Megafit pada tanggal ${getDate(new Date(transaction.createdAt))}</b></p>
+				<p style="margin:15px 0px;"><b>Berikut merupakan detil pembelian di Megafit pada tanggal ${getDate(
+          new Date(transaction.createdAt)
+        )}</b></p>
 
 				<div id="table-order" style="margin-bottom: 20px;">
 					<div style="background-color:#dcdcdc;padding:10px 30px;margin-top:20px;width:500px">
@@ -504,7 +642,9 @@ class TransactionController {
 							<p style="margin:5px;margin-left: 0px;">Admin Fee</p>
 						</div>
 						<div>
-							<p style="margin:5px;margin-left: 0px;">Rp ${transaction.admPrice ? convertRupiah(transaction.admPrice) : 0}</p>
+							<p style="margin:5px;margin-left: 0px;">Rp ${
+                transaction.admPrice ? convertRupiah(transaction.admPrice) : 0
+              }</p>
 						</div>
 					</div>
 					<div style="border-top:1px solid #aaa;font-size:0;margin:8px 30px;width: 500px;"></div>
@@ -513,7 +653,9 @@ class TransactionController {
 							<p style="margin:5px;margin-left: 0px;">Total</p>
 						</div>
 						<div>
-							<p style="margin:5px;margin-left: 0px;">Rp ${convertRupiah(transaction.amount)}</p>
+							<p style="margin:5px;margin-left: 0px;">Rp ${convertRupiah(
+                transaction.amount
+              )}</p>
 						</div>
 					</div>
 				</div>
@@ -524,7 +666,9 @@ class TransactionController {
 				</div>
 				<div style="border-top:1px solid #aaa;font-size:0;margin:8px auto;"></div>
 				<p style="font-size: x-small;">* Transaksi sukses tidak bisa dibatalkan dan uang yang telah dibayarkan tidak bisa dikembalikan.</p>
-				<p style="font-size: x-small;">* Email ini dikirimkan ke ${mailOptions.to} karena kamu telah memilih untuk menerima salinan tanda terima elektronik.</p>
+				<p style="font-size: x-small;">* Email ini dikirimkan ke ${
+          mailOptions.to
+        } karena kamu telah memilih untuk menerima salinan tanda terima elektronik.</p>
 
 				${footerMail}
 				`;
@@ -558,7 +702,9 @@ class TransactionController {
           where: {
             [Op.and]: [{ memberId: req.params.id }, { status: "unpaid" }],
           },
-          include: [{ model: tblOrderList, include: { model: tblPackageMemberships } }],
+          include: [
+            { model: tblOrderList, include: { model: tblPackageMemberships } },
+          ],
         });
       } else {
         data = await tblTransaction.findOne({
@@ -566,7 +712,11 @@ class TransactionController {
             [Op.and]: [
               { memberId: req.params.id },
               {
-                [Op.or]: [{ status: "unpaid" }, { status: "transferred" }, { status: "denied" }],
+                [Op.or]: [
+                  { status: "unpaid" },
+                  { status: "transferred" },
+                  { status: "denied" },
+                ],
               },
             ],
           },
@@ -600,7 +750,14 @@ class TransactionController {
           include: { model: tblUser },
         });
 
-        let { amount, methodPayment, namaRekening, bankAsal, keterangan, paymentDate } = req.body;
+        let {
+          amount,
+          methodPayment,
+          namaRekening,
+          bankAsal,
+          keterangan,
+          paymentDate,
+        } = req.body;
 
         let data;
         if (req.body.paymentMethod === "TRANSFER") {
@@ -634,7 +791,14 @@ class TransactionController {
 
         if (paketLeave) {
           let data = {
-            activeExpired: createDateAsUTC(new Date(new Date(member.activeExpired).getFullYear(), new Date(member.activeExpired).getMonth(), new Date(member.activeExpired).getDate() + paketLeave.tblPackageMembership.times)),
+            activeExpired: createDateAsUTC(
+              new Date(
+                new Date(member.activeExpired).getFullYear(),
+                new Date(member.activeExpired).getMonth(),
+                new Date(member.activeExpired).getDate() +
+                  paketLeave.tblPackageMembership.times
+              )
+            ),
             leaveStatus: "PAID",
           };
 
@@ -660,12 +824,20 @@ class TransactionController {
         let transaction = await tblTransaction.findByPk(req.params.id, {
           include: [{ model: tblOrderList }],
         });
-        let orderLeave = await transaction.tblOrderLists.find((el) => el.categoryMembershipId === 4);
+        let orderLeave = await transaction.tblOrderLists.find(
+          (el) => el.categoryMembershipId === 4
+        );
 
         if (orderLeave && req.body.transactionStatus === "denied") {
           let member = await tblMember.findByPk(transaction.memberId);
           let data = {
-            activeExpired: createDateAsUTC(new Date(new Date(member.activeExpired).getFullYear(), new Date(member.activeExpired).getMonth(), new Date(member.activeExpired).getDate() - 30)),
+            activeExpired: createDateAsUTC(
+              new Date(
+                new Date(member.activeExpired).getFullYear(),
+                new Date(member.activeExpired).getMonth(),
+                new Date(member.activeExpired).getDate() - 30
+              )
+            ),
             isLeave: null,
             leaveDate: null,
             leaveStatus: null,
@@ -728,10 +900,18 @@ class TransactionController {
           where: { userId: req.user.userId },
         });
 
-        let paketMember = cart.find((el) => el.categoryMembershipId === 1 || (el.categoryMembershipId === 8) | (el.categoryMembershipId === 9));
+        let paketMember = cart.find(
+          (el) =>
+            el.categoryMembershipId === 1 ||
+            (el.categoryMembershipId === 8) | (el.categoryMembershipId === 9)
+        );
         let paketPT = cart.find((el) => el.categoryMembershipId === 2);
         let paketOnline = cart.find((el) => el.categoryMembershipId === 5);
-        let paketPG = cart.find((el) => el.packageMembershipId === "NVIP" || el.packageMembershipId === "VIP");
+        let paketPG = cart.find(
+          (el) =>
+            el.packageMembershipId === "NVIP" ||
+            el.packageMembershipId === "VIP"
+        );
 
         // CEK LAST INVOICE NUMBER
         let dataTransaction = await tblTransaction.findOne({
@@ -740,21 +920,53 @@ class TransactionController {
         });
 
         // SETTING UNIQUE CODE INVOICE
-        let uniqueMonth = new Date().getMonth() + 1 < 10 ? `0${new Date().getMonth() + 1}` : new Date().getMonth() + 1;
-        let code = dataTransaction && dataTransaction.salesInvoice ? +dataTransaction.salesInvoice.slice(9) + 1 : 11;
+        let uniqueMonth =
+          new Date().getMonth() + 1 < 10
+            ? `0${new Date().getMonth() + 1}`
+            : new Date().getMonth() + 1;
+        let code =
+          dataTransaction && dataTransaction.salesInvoice
+            ? +dataTransaction.salesInvoice.slice(9) + 1
+            : 11;
         if (code < 100) code = `00${code}`;
         else if (code < 1000) code = `0${code}`;
 
         // FIX UNIQUE CODE
-        let salesInvoice = `MPSI-${String(new Date().getFullYear()).slice(2)}${uniqueMonth}${code}`;
+        let salesInvoice = `MPSI-${String(new Date().getFullYear()).slice(
+          2
+        )}${uniqueMonth}${code}`;
 
         let data = {
           activeExpired:
-            cekSisaHari(member.activeExpired) > 0 && member.packageMembershipId !== "Trial"
-              ? createDateAsUTC(new Date(new Date(member.activeExpired).getFullYear(), new Date(member.activeExpired).getMonth(), new Date(member.activeExpired).getDate() + ((paketMember && paketMember.tblPackageMembership.times) || 0)))
-              : paketMember && createDateAsUTC(new Date(new Date().getFullYear(), new Date().getMonth(), new Date().getDate() + ((paketMember && paketMember.tblPackageMembership.times) || 0))),
-          ptSession: member.ptSession + ((paketPT && paketPT.tblPackageMembership.times) || 0),
-          ptSessionOnline: member.ptSessionOnline + ((paketOnline && paketOnline.tblPackageMembership.times) || 0),
+            cekSisaHari(member.activeExpired) > 0 &&
+            member.packageMembershipId !== "Trial"
+              ? createDateAsUTC(
+                  new Date(
+                    new Date(member.activeExpired).getFullYear(),
+                    new Date(member.activeExpired).getMonth(),
+                    new Date(member.activeExpired).getDate() +
+                      ((paketMember &&
+                        paketMember.tblPackageMembership.times) ||
+                        0)
+                  )
+                )
+              : paketMember &&
+                createDateAsUTC(
+                  new Date(
+                    new Date().getFullYear(),
+                    new Date().getMonth(),
+                    new Date().getDate() +
+                      ((paketMember &&
+                        paketMember.tblPackageMembership.times) ||
+                        0)
+                  )
+                ),
+          ptSession:
+            member.ptSession +
+            ((paketPT && paketPT.tblPackageMembership.times) || 0),
+          ptSessionOnline:
+            member.ptSessionOnline +
+            ((paketOnline && paketOnline.tblPackageMembership.times) || 0),
         };
 
         let revenueData = {
@@ -764,26 +976,47 @@ class TransactionController {
         if (paketMember) {
           if (member.packageMembershipId === "Trial") data.activeDate = null;
           if (cekSisaHari(member.activeExpired) <= 0) {
-            data.packageMembershipId = member.packageMembershipId !== "1DP" && paketMember.packageMembershipId === "1DP" && member.packageMembershipId ? member.packageMembershipId : paketMember.packageMembershipId;
+            data.packageMembershipId =
+              member.packageMembershipId !== "1DP" &&
+              paketMember.packageMembershipId === "1DP" &&
+              member.packageMembershipId
+                ? member.packageMembershipId
+                : paketMember.packageMembershipId;
           }
-          revenueData.dateActiveMembership = cekSisaHari(member.activeExpired) > 0 ? createDateAsUTC(new Date(member.activeExpired)) : createDateAsUTC(new Date());
+          revenueData.dateActiveMembership =
+            cekSisaHari(member.activeExpired) > 0
+              ? createDateAsUTC(new Date(member.activeExpired))
+              : createDateAsUTC(new Date());
           revenueData.price = paketMember.tblPackageMembership.price;
           revenueData.packageBefore = member.packageMembershipId;
-          revenueData.packageAfter = paketMember.tblPackageMembership.packageMembershipId;
+          revenueData.packageAfter =
+            paketMember.tblPackageMembership.packageMembershipId;
           revenueData.times = paketMember.tblPackageMembership.times;
           revenueData.debit = paketMember.tblPackageMembership.times;
           revenueData.activeMembershipExpired = data.activeExpired;
-          revenueData.saldo_member = member.isLeave ? cekSisaHari(data.activeExpired) - (30 - cekSisaCuti(new Date(), new Date(member.leaveDate))) : cekSisaHari(data.activeExpired);
-          revenueData.status = cekSisaHari(member.activeExpired) > 0 || !member.activeDate || member.packageMembershipId === "Trial" ? "PENDING" : "OPEN";
+          revenueData.saldo_member = member.isLeave
+            ? cekSisaHari(data.activeExpired) -
+              (30 - cekSisaCuti(new Date(), new Date(member.leaveDate)))
+            : cekSisaHari(data.activeExpired);
+          revenueData.status =
+            cekSisaHari(member.activeExpired) > 0 ||
+            !member.activeDate ||
+            member.packageMembershipId === "Trial"
+              ? "PENDING"
+              : "OPEN";
           revenueData.is_event = false;
 
-          await tblUser.update({ flagActive: true }, { where: { userId: member.userId } });
+          await tblUser.update(
+            { flagActive: true },
+            { where: { userId: member.userId } }
+          );
         }
 
         if (paketPT) {
           data.packagePTId = paketPT.tblPackageMembership.packageMembershipId;
           data.sisaLastPTSession = member.ptSession;
-          revenueData.packagePT = paketPT.tblPackageMembership.packageMembershipId;
+          revenueData.packagePT =
+            paketPT.tblPackageMembership.packageMembershipId;
           revenueData.pricePT = paketPT.tblPackageMembership.price;
           revenueData.timesPT = paketPT.tblPackageMembership.times;
         }
@@ -807,7 +1040,8 @@ class TransactionController {
           staffId: staff.staffId,
           deniedReason: null,
         };
-        if (req.body.inputMethod !== "POS") transactionUpdate.salesInvoice = salesInvoice;
+        if (req.body.inputMethod !== "POS")
+          transactionUpdate.salesInvoice = salesInvoice;
 
         await tblTransaction.update(transactionUpdate, {
           where: { transactionId: req.params.id },
@@ -864,10 +1098,19 @@ class TransactionController {
               order +
               `<div style="display:flex;margin-left:30px;">
 						<div style="width:350px;">
-							<p style="margin:5px;margin-left: 0px;">${element.tblPackageMembership.package} ${element.tblPackageMembership.times} ${element.categoryMembershipId !== 2 || element.categoryMembershipId !== 2 ? "Hari" : "Sesi"}</p>
+							<p style="margin:5px;margin-left: 0px;">${
+                element.tblPackageMembership.package
+              } ${element.tblPackageMembership.times} ${
+                element.categoryMembershipId !== 2 ||
+                element.categoryMembershipId !== 2
+                  ? "Hari"
+                  : "Sesi"
+              }</p>
 						</div>
 						<div>
-							<p style="margin:5px;margin-left: 0px;">Rp ${convertRupiah(element.totalPrice)}</p>
+							<p style="margin:5px;margin-left: 0px;">Rp ${convertRupiah(
+                element.totalPrice
+              )}</p>
 						</div>
 					</div>`;
           });
@@ -879,7 +1122,9 @@ class TransactionController {
 				<p style="font-size: 20px;margin-bottom: 5px;"><b>Terima kasih telah belanja di Megafit</b></p>
 				<p style="margin:0px 0px 10px 0px;color:#91c640">Lebih sedikit kertas, lebih hijau! Pilihan Megarangers membuat dunia lebih baik.</p>
 
-				<p style="margin:15px 0px;"><b>Berikut merupakan detil pembelian di Megafit pada tanggal ${getDate(new Date(transaction.createdAt))}</b></p>
+				<p style="margin:15px 0px;"><b>Berikut merupakan detil pembelian di Megafit pada tanggal ${getDate(
+          new Date(transaction.createdAt)
+        )}</b></p>
 
 				<div id="table-order" style="margin-bottom: 20px;">
 					<div style="background-color:#dcdcdc;padding:10px 30px;margin-top:20px;width:500px">
@@ -894,7 +1139,9 @@ class TransactionController {
 							<p style="margin:5px;margin-left: 0px;">Admin Fee</p>
 						</div>
 						<div>
-							<p style="margin:5px;margin-left: 0px;">Rp ${transaction.admPrice ? convertRupiah(transaction.admPrice) : 0}</p>
+							<p style="margin:5px;margin-left: 0px;">Rp ${
+                transaction.admPrice ? convertRupiah(transaction.admPrice) : 0
+              }</p>
 						</div>
 					</div>
 					<div style="border-top:1px solid #aaa;font-size:0;margin:8px 30px;width: 500px;"></div>
@@ -903,7 +1150,9 @@ class TransactionController {
 							<p style="margin:5px;margin-left: 0px;">Total</p>
 						</div>
 						<div>
-							<p style="margin:5px;margin-left: 0px;">Rp ${convertRupiah(transaction.amount)}</p>
+							<p style="margin:5px;margin-left: 0px;">Rp ${convertRupiah(
+                transaction.amount
+              )}</p>
 						</div>
 					</div>
 				</div>
@@ -914,7 +1163,9 @@ class TransactionController {
 				</div>
 				<div style="border-top:1px solid #aaa;font-size:0;margin:8px auto;"></div>
 				<p style="font-size: x-small;">* Transaksi sukses tidak bisa dibatalkan dan uang yang telah dibayarkan tidak bisa dikembalikan.</p>
-				<p style="font-size: x-small;">* Email ini dikirimkan ke ${mailOptions.to} karena kamu telah memilih untuk menerima salinan tanda terima elektronik.</p>
+				<p style="font-size: x-small;">* Email ini dikirimkan ke ${
+          mailOptions.to
+        } karena kamu telah memilih untuk menerima salinan tanda terima elektronik.</p>
 
 				${footerMail}
 				`;
@@ -942,12 +1193,21 @@ class TransactionController {
     try {
       const transaction = await tblTransaction.findOne({
         where: { transactionId },
-        attributes: ["transactionId", "memberId", "amount", "createdAt", "expiredAt", "status", "namaRekening"],
+        attributes: [
+          "transactionId",
+          "memberId",
+          "amount",
+          "createdAt",
+          "expiredAt",
+          "status",
+          "namaRekening",
+        ],
         raw: true,
         nest: true,
       });
 
-      if (transaction.status !== "unpaid" || transaction.namaRekening) throw { name: "notFound" };
+      if (transaction.status !== "unpaid" || transaction.namaRekening)
+        throw { name: "notFound" };
 
       let member = await tblUser.findOne({
         where: { email },
@@ -981,9 +1241,14 @@ class TransactionController {
         serviceCharge: serviceCharge[req.body.paymentMethod],
       });
 
-      let incomingXenditeDate = new Date(moment(new Date(invoice.expiry_date)).subtract(1, "days"));
+      let incomingXenditeDate = new Date(
+        moment(new Date(invoice.expiry_date)).subtract(1, "days")
+      );
       // incomingXenditeDate.setHours(new Date().getHours() - 1);
-      console.log(incomingXenditeDate, "<---- ini original invoice dari xendit");
+      console.log(
+        incomingXenditeDate,
+        "<---- ini original invoice dari xendit"
+      );
       let expiredTrans = new Date(moment(new Date(transaction.expiredAt)));
       console.log(expiredTrans, "<---- ini expired tanggal transaksi");
 
@@ -994,7 +1259,9 @@ class TransactionController {
         {
           expiredAt: createDateAsUTC(new Date(invoice.expiry_date)),
           methodPayment: req.body.paymentMethod,
-          namaRekening: invoice.customer.given_names ? invoice.customer.given_names : member.username,
+          namaRekening: invoice.customer.given_names
+            ? invoice.customer.given_names
+            : member.username,
           xendit_url: invoice.invoice_url,
         },
         {
@@ -1022,34 +1289,60 @@ class TransactionController {
 
   static async callbackXenditInvoice(req, res, next) {
     try {
-      const callbackToken = "c264d6379d6d495435f9443e45dd6384b3e6efdb397bff855b4b3a63d3e1e5f6";
-      const incomingCallback = req.headers["x-callback-token"] ? req.headers["x-callback-token"] : null;
+      const callbackToken =
+        "c264d6379d6d495435f9443e45dd6384b3e6efdb397bff855b4b3a63d3e1e5f6";
+      const incomingCallback = req.headers["x-callback-token"]
+        ? req.headers["x-callback-token"]
+        : null;
 
       if (incomingCallback === callbackToken) {
         let transaction = await tblTransaction.findOne({
           where: {
-            [Op.and]: [{ transactionId: +req.body.external_id || -1 }, { xendit_url: { [Op.not]: null } }],
+            [Op.and]: [
+              { transactionId: +req.body.external_id || -1 },
+              { xendit_url: { [Op.not]: null } },
+            ],
           },
-          attributes: ["transactionId", "memberId", "amount", "createdAt", "expiredAt", "methodPayment"],
+          attributes: [
+            "transactionId",
+            "memberId",
+            "amount",
+            "createdAt",
+            "expiredAt",
+            "methodPayment",
+          ],
           include: {
             model: tblOrderList,
             include: { model: tblPackageMemberships },
           },
         });
-        if (transaction.methodPayment == "EDC" && transaction.expiredAt == null) throw { name: "ok" };
-        if (!transaction || !transaction.expiredAt || !req.body.payment_channel) throw { name: "notFound" };
-        if (req.body.status == "EXPIRED" && transaction.methodPayment == "EDC") throw { name: "ok" };
+        if (transaction.methodPayment == "EDC" && transaction.expiredAt == null)
+          throw { name: "ok" };
+        if (!transaction || !transaction.expiredAt || !req.body.payment_channel)
+          throw { name: "notFound" };
+        if (req.body.status == "EXPIRED" && transaction.methodPayment == "EDC")
+          throw { name: "ok" };
         // new Date(Date.now()) >= new Date(transaction.expiredAt)
         let cart = transaction.tblOrderLists;
         let member = await tblMember.findOne({
           where: { memberId: transaction.memberId },
+          include: { model: tblUser },
         });
 
-        let paketMember = cart.find((el) => el.categoryMembershipId === 1 || (el.categoryMembershipId === 8) | (el.categoryMembershipId === 9));
+        let paketMember = cart.find(
+          (el) =>
+            el.categoryMembershipId === 1 ||
+            (el.categoryMembershipId === 8) | (el.categoryMembershipId === 9)
+        );
         let paketLeave = cart.find((el) => el.categoryMembershipId === 4);
         let paketPT = cart.find((el) => el.categoryMembershipId === 2);
         let paketOnline = cart.find((el) => el.categoryMembershipId === 5);
-        let paketPG = cart.find((el) => el.packageMembershipId === "NVIP" || el.packageMembershipId === "VIP");
+        let paketPG = cart.find(
+          (el) =>
+            el.packageMembershipId === "NVIP" ||
+            el.packageMembershipId === "VIP"
+        );
+        let paketKelas = cart.find((el) => el.categoryMembershipId === 6);
 
         // CEK LAST INVOICE NUMBER
         let dataTransaction = await tblTransaction.findOne({
@@ -1058,30 +1351,57 @@ class TransactionController {
         });
 
         // SETTING UNIQUE CODE INVOICE
-        let uniqueMonth = new Date().getMonth() + 1 < 10 ? `0${new Date().getMonth() + 1}` : new Date().getMonth() + 1;
-        let code = dataTransaction && dataTransaction.salesInvoice ? +dataTransaction.salesInvoice.slice(9) + 1 : 11;
+        let uniqueMonth =
+          new Date().getMonth() + 1 < 10
+            ? `0${new Date().getMonth() + 1}`
+            : new Date().getMonth() + 1;
+        let code =
+          dataTransaction && dataTransaction.salesInvoice
+            ? +dataTransaction.salesInvoice.slice(9) + 1
+            : 11;
         if (code < 100) code = `00${code}`;
         else if (code < 1000) code = `0${code}`;
 
         // FIX UNIQUE CODE
-        let salesInvoice = `MPSI-${String(new Date().getFullYear()).slice(2)}${uniqueMonth}${code}`;
+        let salesInvoice = `MPSI-${String(new Date().getFullYear()).slice(
+          2
+        )}${uniqueMonth}${code}`;
 
         let data = {
           activeExpired:
-            cekSisaHari(member.activeExpired) > 0 && member.packageMembershipId !== "Trial"
+            cekSisaHari(member.activeExpired) > 0 &&
+            member.packageMembershipId !== "Trial"
               ? createDateAsUTC(
                   new Date(
                     new Date(member.activeExpired).getFullYear(),
                     new Date(member.activeExpired).getMonth(),
-                    new Date(member.activeExpired).getDate() + ((paketMember && paketMember.tblPackageMembership.times) || 0) + ((paketLeave && paketLeave.tblPackageMembership.times) || 0)
+                    new Date(member.activeExpired).getDate() +
+                      ((paketMember &&
+                        paketMember.tblPackageMembership.times) ||
+                        0) +
+                      ((paketLeave && paketLeave.tblPackageMembership.times) ||
+                        0)
                   )
                 )
               : paketMember &&
                 createDateAsUTC(
-                  new Date(new Date().getFullYear(), new Date().getMonth(), new Date().getDate() + ((paketMember && paketMember.tblPackageMembership.times) || 0) + ((paketLeave && paketLeave.tblPackageMembership.times) || 0))
+                  new Date(
+                    new Date().getFullYear(),
+                    new Date().getMonth(),
+                    new Date().getDate() +
+                      ((paketMember &&
+                        paketMember.tblPackageMembership.times) ||
+                        0) +
+                      ((paketLeave && paketLeave.tblPackageMembership.times) ||
+                        0)
+                  )
                 ),
-          ptSession: member.ptSession + ((paketPT && paketPT.tblPackageMembership.times) || 0),
-          ptSessionOnline: member.ptSessionOnline + ((paketOnline && paketOnline.tblPackageMembership.times) || 0),
+          ptSession:
+            member.ptSession +
+            ((paketPT && paketPT.tblPackageMembership.times) || 0),
+          ptSessionOnline:
+            member.ptSessionOnline +
+            ((paketOnline && paketOnline.tblPackageMembership.times) || 0),
         };
 
         let revenueData = {
@@ -1091,31 +1411,50 @@ class TransactionController {
         if (paketMember) {
           if (member.packageMembershipId === "Trial") data.activeDate = null;
           if (cekSisaHari(member.activeExpired) <= 0) {
-            data.packageMembershipId = member.packageMembershipId !== "1DP" && paketMember.packageMembershipId === "1DP" && member.packageMembershipId ? member.packageMembershipId : paketMember.packageMembershipId;
+            data.packageMembershipId =
+              member.packageMembershipId !== "1DP" &&
+              paketMember.packageMembershipId === "1DP" &&
+              member.packageMembershipId
+                ? member.packageMembershipId
+                : paketMember.packageMembershipId;
           }
           revenueData.dateActiveMembership = paketLeave
-            ? createDateAsUTC(new Date(moment(new Date(member.activeExpired)).add(30, "days")))
+            ? createDateAsUTC(
+                new Date(moment(new Date(member.activeExpired)).add(30, "days"))
+              )
             : cekSisaHari(member.activeExpired) > 0
             ? createDateAsUTC(new Date(member.activeExpired))
             : createDateAsUTC(new Date());
-          revenueData.price = paketMember.tblPackageMembership.price;
+          revenueData.price = member.tblUser.agreePromo
+            ? paketMember.totalPrice
+            : paketMember.tblPackageMembership.price;
           revenueData.packageBefore = member.packageMembershipId;
-          revenueData.packageAfter = paketMember.tblPackageMembership.packageMembershipId;
+          revenueData.packageAfter =
+            paketMember.tblPackageMembership.packageMembershipId;
           revenueData.times = paketMember.tblPackageMembership.times;
           revenueData.debit = paketMember.tblPackageMembership.times;
           revenueData.activeMembershipExpired = data.activeExpired;
-          revenueData.saldo_member = member.isLeave ? cekSisaHari(data.activeExpired) - (30 - cekSisaCuti(new Date(), new Date(member.leaveDate))) : cekSisaHari(data.activeExpired);
-          revenueData.status = cekSisaHari(member.activeExpired) > 0 || !member.activeDate || member.packageMembershipId === "Trial" ? "PENDING" : "OPEN";
+          revenueData.saldo_member = member.isLeave
+            ? cekSisaHari(data.activeExpired) -
+              (30 - cekSisaCuti(new Date(), new Date(member.leaveDate)))
+            : cekSisaHari(data.activeExpired);
+          revenueData.status =
+            cekSisaHari(member.activeExpired) > 0 ||
+            !member.activeDate ||
+            member.packageMembershipId === "Trial"
+              ? "PENDING"
+              : "OPEN";
           revenueData.is_event = false;
-
-          await tblUser.update({ flagActive: true }, { where: { userId: member.userId } });
         }
 
         if (paketPT) {
           data.packagePTId = paketPT.tblPackageMembership.packageMembershipId;
           data.sisaLastPTSession = member.ptSession;
-          revenueData.packagePT = paketPT.tblPackageMembership.packageMembershipId;
-          revenueData.pricePT = paketPT.tblPackageMembership.price;
+          revenueData.packagePT =
+            paketPT.tblPackageMembership.packageMembershipId;
+          revenueData.pricePT = member.tblUser.agreePromo
+            ? paketPT.totalPrice
+            : paketPT.tblPackageMembership.price;
           revenueData.timesPT = paketPT.tblPackageMembership.times;
         }
 
@@ -1131,11 +1470,45 @@ class TransactionController {
         if (paketMember || paketPT) {
           revenueData.keterangan = salesInvoice;
           await tblRevenue.create(revenueData);
+          await tblUser.update(
+            { flagActive: true, agreePromo: false },
+            { where: { userId: member.userId } }
+          );
         }
         // UPDATE DATA SETELAH PEMBAYARAN
         await tblMember.update(data, {
           where: { memberId: transaction.memberId },
         });
+
+        // for classPackage checkout
+        if (paketKelas) {
+          let classPackage = await tblPackageClasses.create({
+            expiredDate: createDateAsUTC(
+              new Date(
+                new Date().getFullYear(),
+                new Date().getMonth(),
+                new Date().getDate() +
+                  (paketKelas.tblPackageMembership.times || 0)
+              )
+            ),
+            memberId: member.memberId,
+            subCategoryMembershipId:
+              paketKelas.tblPackageMembership.subCategoryMembershipId,
+            classSession: paketKelas.tblPackageMembership.classUsed,
+            activeDate: createDateAsUTC(new Date()),
+          });
+          await tblRevenue.create({
+            memberId: member.memberId,
+            keterangan: salesInvoice,
+            dateActiveMembership: createDateAsUTC(new Date()),
+            activeMembershipExpired: classPackage.expiredDate,
+            status: "OPEN",
+            packageBefore: paketKelas.tblPackageMembership.package,
+            times: paketKelas.tblPackageMembership.classUsed,
+            kredit: 0,
+            price: paketKelas.tblPackageMembership.price,
+          });
+        }
 
         let transactionUpdate = {
           salesInvoice: salesInvoice,
@@ -1158,7 +1531,10 @@ class TransactionController {
           where: { transactionId: transaction.transactionId },
         });
 
-        await tblOrderList.update({ salesInvoice }, { where: { transactionId: transaction.transactionId } });
+        await tblOrderList.update(
+          { salesInvoice },
+          { where: { transactionId: transaction.transactionId } }
+        );
 
         // let orderList = await tblOrderList.findAll({
         //   where: {
@@ -1201,10 +1577,19 @@ class TransactionController {
             order +
             `<div style="display:flex;margin-left:30px;">
             <div style="width:350px;">
-              <p style="margin:5px;margin-left: 0px;">${element.tblPackageMembership.package} ${element.tblPackageMembership.times} ${element.categoryMembershipId !== 2 || element.categoryMembershipId !== 2 ? "Hari" : "Sesi"}</p>
+              <p style="margin:5px;margin-left: 0px;">${
+                element.tblPackageMembership.package
+              } ${element.tblPackageMembership.times} ${
+              element.categoryMembershipId !== 2 ||
+              element.categoryMembershipId !== 2
+                ? "Hari"
+                : "Sesi"
+            }</p>
             </div>
             <div>
-              <p style="margin:5px;margin-left: 0px;">Rp ${convertRupiah(element.totalPrice)}</p>
+              <p style="margin:5px;margin-left: 0px;">Rp ${convertRupiah(
+                element.totalPrice
+              )}</p>
             </div>
           </div>`;
         });
@@ -1216,7 +1601,9 @@ class TransactionController {
         <p style="font-size: 20px;margin-bottom: 5px;"><b>Terima kasih telah belanja di Megafit</b></p>
         <p style="margin:0px 0px 10px 0px;color:#91c640">Lebih sedikit kertas, lebih hijau! Pilihan Megarangers membuat dunia lebih baik.</p>
   
-        <p style="margin:15px 0px;"><b>Berikut merupakan detil pembelian di Megafit pada tanggal ${getDate(new Date(transaction.createdAt))}</b></p>
+        <p style="margin:15px 0px;"><b>Berikut merupakan detil pembelian di Megafit pada tanggal ${getDate(
+          new Date(transaction.createdAt)
+        )}</b></p>
   
         <div id="table-order" style="margin-bottom: 20px;">
           <div style="background-color:#dcdcdc;padding:10px 30px;margin-top:20px;width:500px">
@@ -1231,7 +1618,9 @@ class TransactionController {
               <p style="margin:5px;margin-left: 0px;">Admin Fee</p>
             </div>
             <div>
-              <p style="margin:5px;margin-left: 0px;">Rp ${transaction.admPrice ? convertRupiah(transaction.admPrice) : 0}</p>
+              <p style="margin:5px;margin-left: 0px;">Rp ${
+                transaction.admPrice ? convertRupiah(transaction.admPrice) : 0
+              }</p>
             </div>
           </div>
           <div style="border-top:1px solid #aaa;font-size:0;margin:8px 30px;width: 500px;"></div>
@@ -1240,7 +1629,9 @@ class TransactionController {
               <p style="margin:5px;margin-left: 0px;">Total</p>
             </div>
             <div>
-              <p style="margin:5px;margin-left: 0px;">Rp ${convertRupiah(transaction.amount)}</p>
+              <p style="margin:5px;margin-left: 0px;">Rp ${convertRupiah(
+                transaction.amount
+              )}</p>
             </div>
           </div>
         </div>
@@ -1251,7 +1642,9 @@ class TransactionController {
         </div>
         <div style="border-top:1px solid #aaa;font-size:0;margin:8px auto;"></div>
         <p style="font-size: x-small;">* Transaksi sukses tidak bisa dibatalkan dan uang yang telah dibayarkan tidak bisa dikembalikan.</p>
-        <p style="font-size: x-small;">* Email ini dikirimkan ke ${mailOptions.to} karena kamu telah memilih untuk menerima salinan tanda terima elektronik.</p>
+        <p style="font-size: x-small;">* Email ini dikirimkan ke ${
+          mailOptions.to
+        } karena kamu telah memilih untuk menerima salinan tanda terima elektronik.</p>
   
         ${footerMail}
         `;
@@ -1310,10 +1703,16 @@ class TransactionController {
         await tblTransaction.destroy({
           where: { transactionId: cart.tblTransaction.transactionId },
         });
+        await tblHistoryPromo.destroy({
+          where: { transaction: cart.tblTransaction.transactionId },
+        });
       }
 
       if (cart.categoryMembershipId === 4) {
-        await tblMember.update({ isLeave: null, leaveDate: null, leaveStatus: null }, { where: { memberId: transaction.memberId } });
+        await tblMember.update(
+          { isLeave: null, leaveDate: null, leaveStatus: null },
+          { where: { memberId: transaction.memberId } }
+        );
       }
 
       res.status(200).json({ Message: "Succesfully Deleted" });
@@ -1339,10 +1738,19 @@ class TransactionController {
           order +
           `<div style="display:flex;margin-left:30px;">
 			    <div style="width:350px;">
-			      <p style="margin:5px;margin-left: 0px;">${element.tblPackageMembership.package} ${element.tblPackageMembership.times} ${element.categoryMembershipId !== 2 || element.categoryMembershipId !== 2 ? "Hari" : "Sesi"}</p>
+			      <p style="margin:5px;margin-left: 0px;">${
+              element.tblPackageMembership.package
+            } ${element.tblPackageMembership.times} ${
+            element.categoryMembershipId !== 2 ||
+            element.categoryMembershipId !== 2
+              ? "Hari"
+              : "Sesi"
+          }</p>
 			    </div>
 			    <div>
-			      <p style="margin:5px;margin-left: 0px;">Rp ${convertRupiah(element.totalPrice)}</p>
+			      <p style="margin:5px;margin-left: 0px;">Rp ${convertRupiah(
+              element.totalPrice
+            )}</p>
 			    </div>
 			  </div>`;
       });
@@ -1354,7 +1762,9 @@ class TransactionController {
 			<p style="font-size: 20px;margin-bottom: 5px;"><b>Terima kasih telah belanja di Megafit</b></p>
 			<p style="margin:0px 0px 10px 0px;color:#91c640">Lebih sedikit kertas, lebih hijau! Pilihan Megarangers membuat dunia lebih baik.</p>
 
-			<p style="margin:15px 0px;"><b>Berikut merupakan detil pembelian di Megafit pada tanggal ${getDate(new Date(transaction.createdAt))}</b></p>
+			<p style="margin:15px 0px;"><b>Berikut merupakan detil pembelian di Megafit pada tanggal ${getDate(
+        new Date(transaction.createdAt)
+      )}</b></p>
 
 			<div id="table-order" style="margin-bottom: 20px;">
 			  <div style="background-color:#dcdcdc;padding:10px 30px;margin-top:20px;width:500px">
@@ -1369,7 +1779,9 @@ class TransactionController {
 			      <p style="margin:5px;margin-left: 0px;">Admin Fee</p>
 			    </div>
 			    <div>
-			      <p style="margin:5px;margin-left: 0px;">Rp ${transaction.admPrice ? convertRupiah(transaction.admPrice) : 0}</p>
+			      <p style="margin:5px;margin-left: 0px;">Rp ${
+              transaction.admPrice ? convertRupiah(transaction.admPrice) : 0
+            }</p>
 			    </div>
 			  </div>
 			  <div style="border-top:1px solid #aaa;font-size:0;margin:8px 30px;width: 500px;"></div>
@@ -1378,7 +1790,9 @@ class TransactionController {
 			      <p style="margin:5px;margin-left: 0px;">Total</p>
 			    </div>
 			    <div>
-			      <p style="margin:5px;margin-left: 0px;">Rp ${convertRupiah(transaction.amount)}</p>
+			      <p style="margin:5px;margin-left: 0px;">Rp ${convertRupiah(
+              transaction.amount
+            )}</p>
 			    </div>
 			  </div>
 			</div>
@@ -1389,7 +1803,9 @@ class TransactionController {
 			</div>
 			<div style="border-top:1px solid #aaa;font-size:0;margin:8px auto;"></div>
 			<p style="font-size: x-small;">* Transaksi sukses tidak bisa dibatalkan dan uang yang telah dibayarkan tidak bisa dikembalikan.</p>
-			<p style="font-size: x-small;">* Email ini dikirimkan ke ${mailOptions.to} karena kamu telah memilih untuk menerima salinan tanda terima elektronik.</p>
+			<p style="font-size: x-small;">* Email ini dikirimkan ke ${
+        mailOptions.to
+      } karena kamu telah memilih untuk menerima salinan tanda terima elektronik.</p>
 
 			${footerMail}
 			`;
@@ -1431,7 +1847,9 @@ class TransactionController {
             memberId: req.params.id,
             [Op.or]: [{ status: "unpaid" }, { status: "transferred" }],
           },
-          include: [{ model: tblOrderList, where: { categoryMembershipId: 4 } }],
+          include: [
+            { model: tblOrderList, where: { categoryMembershipId: 4 } },
+          ],
         });
       }
 
@@ -1458,7 +1876,20 @@ function convertRupiah(args) {
 }
 
 function getDate(args) {
-  const months = ["Januari", "Februari", "Maret", "April", "Mei", "Juni", "Juli", "Agustus", "September", "Oktober", "November", "Desember"];
+  const months = [
+    "Januari",
+    "Februari",
+    "Maret",
+    "April",
+    "Mei",
+    "Juni",
+    "Juli",
+    "Agustus",
+    "September",
+    "Oktober",
+    "November",
+    "Desember",
+  ];
 
   return `${args.getDate()} ${months[args.getMonth()]} ${args.getFullYear()}`;
 }

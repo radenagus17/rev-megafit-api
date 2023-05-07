@@ -3,8 +3,21 @@ const Op = require("sequelize").Op;
 const { createDateAsUTC } = require("./convertDate");
 const { sendEmailRememberMembership } = require("./nodemailer");
 const moment = require("moment");
-const { tblCheckinCheckouts, tblTransaction, tblMember, tblPackageMemberships, tblSubCategoryMembership, tblUser, tblRevenue, tblCancelReservation, tblHistoryRemain, tblClassPt, tblHistoryPT, tblPackageClasses } = require("../models");
-const { getWeek } = require("../helpers/getNumberOfWeek")
+const {
+  tblCheckinCheckouts,
+  tblTransaction,
+  tblMember,
+  tblPackageMemberships,
+  tblSubCategoryMembership,
+  tblUser,
+  tblRevenue,
+  tblCancelReservation,
+  tblHistoryRemain,
+  tblClassPt,
+  tblHistoryPT,
+  tblPackageClasses,
+} = require("../models");
+const { getWeek } = require("../helpers/getNumberOfWeek");
 
 async function rescheduleCRON() {
   await handleReservation();
@@ -16,7 +29,7 @@ async function rescheduleCRON() {
   await handleMemberBelumAktif();
   await handleKreditMember();
   await handleScorchedPTMember();
-  await handleScorchedPackageClass()
+  await handleScorchedPackageClass();
   // await handleCashlez();
   // await handleCancelCashlez();
   // await handleCekDuplicateRevenue();
@@ -28,15 +41,35 @@ async function rememberExtendPackage(memberId) {
     include: [{ model: tblUser }],
   });
   if (oldDataMember) {
-    let date = new Date(new Date(oldDataMember.activeExpired).setDate(new Date(oldDataMember.activeExpired).getDate() - 7));
+    let date = new Date(
+      new Date(oldDataMember.activeExpired).setDate(
+        new Date(oldDataMember.activeExpired).getDate() - 7
+      )
+    );
     schedule.scheduleJob(date, async function () {
       let newDataMember = await tblMember.findByPk(memberId);
-      if (newDataMember && "" + newDataMember.activeExpired === "" + oldDataMember.activeExpired && !newDataMember.isFreeze) {
-        await sendEmailRememberMembership(oldDataMember.tblUser.nickname, oldDataMember.tblUser.email, handleGetDate(oldDataMember.activeExpired));
+      if (
+        newDataMember &&
+        "" + newDataMember.activeExpired === "" + oldDataMember.activeExpired &&
+        !newDataMember.isFreeze
+      ) {
+        await sendEmailRememberMembership(
+          oldDataMember.tblUser.nickname,
+          oldDataMember.tblUser.email,
+          handleGetDate(oldDataMember.activeExpired)
+        );
         await rememberNonActiveMembership(memberId);
-        console.log("rememberExtendPackage Sukses", memberId, createDateAsUTC(new Date()));
+        console.log(
+          "rememberExtendPackage Sukses",
+          memberId,
+          createDateAsUTC(new Date())
+        );
       } else {
-        console.log(`rememberExtendPackage Tidak Sukses, membership has update `, memberId, createDateAsUTC(new Date()));
+        console.log(
+          `rememberExtendPackage Tidak Sukses, membership has update `,
+          memberId,
+          createDateAsUTC(new Date())
+        );
       }
     });
   }
@@ -46,35 +79,76 @@ async function rememberNonActiveMembership(memberId) {
     include: [{ model: tblUser }],
   });
   if (oldDataMember) {
-    console.log("schedule rememberNonActiveMembership", memberId, createDateAsUTC(new Date()));
+    console.log(
+      "schedule rememberNonActiveMembership",
+      memberId,
+      createDateAsUTC(new Date())
+    );
     let date = new Date(oldDataMember.activeExpired);
 
     schedule.scheduleJob(date, async function () {
       let newDataMember = await tblMember.findByPk(memberId);
-      if (newDataMember && "" + newDataMember.activeExpired === "" + oldDataMember.activeExpired && !newDataMember.isFreeze) {
-        await sendEmailRememberMembership(oldDataMember.tblUser.nickname, oldDataMember.tblUser.email, handleGetDate(oldDataMember.activeExpired), "non active");
+      if (
+        newDataMember &&
+        "" + newDataMember.activeExpired === "" + oldDataMember.activeExpired &&
+        !newDataMember.isFreeze
+      ) {
+        await sendEmailRememberMembership(
+          oldDataMember.tblUser.nickname,
+          oldDataMember.tblUser.email,
+          handleGetDate(oldDataMember.activeExpired),
+          "non active"
+        );
         await nonActiveMembership(memberId, oldDataMember.activeExpired);
-        console.log("rememberNonActiveMembership Sukses", memberId, createDateAsUTC(new Date()));
+        console.log(
+          "rememberNonActiveMembership Sukses",
+          memberId,
+          createDateAsUTC(new Date())
+        );
       } else {
-        console.log(`rememberNonActiveMembership Tidak Sukses, membership has update`, memberId, createDateAsUTC(new Date()));
+        console.log(
+          `rememberNonActiveMembership Tidak Sukses, membership has update`,
+          memberId,
+          createDateAsUTC(new Date())
+        );
       }
     });
   }
 }
 
 async function nonActiveMembership(memberId, activeExpired) {
-  console.log("schedule nonActiveMembership", memberId, createDateAsUTC(new Date()));
-  let date = new Date(new Date(activeExpired).setDate(new Date(activeExpired).getDate() + 7));
+  console.log(
+    "schedule nonActiveMembership",
+    memberId,
+    createDateAsUTC(new Date())
+  );
+  let date = new Date(
+    new Date(activeExpired).setDate(new Date(activeExpired).getDate() + 7)
+  );
 
   schedule.scheduleJob(date, async function () {
     let newDataMember = await tblMember.findByPk(memberId, {
       include: [{ model: tblUser }],
     });
-    if (newDataMember && "" + newDataMember.activeExpired === "" + newDataMember.activeExpired) {
-      await tblUser.update({ flagActive: 0 }, { where: { userId: newDataMember.tblUser.userId } });
-      console.log("nonActiveMembership Sukses", memberId, createDateAsUTC(new Date()));
+    if (
+      newDataMember &&
+      "" + newDataMember.activeExpired === "" + newDataMember.activeExpired
+    ) {
+      await tblUser.update(
+        { flagActive: 0 },
+        { where: { userId: newDataMember.tblUser.userId } }
+      );
+      console.log(
+        "nonActiveMembership Sukses",
+        memberId,
+        createDateAsUTC(new Date())
+      );
     } else {
-      console.log(`nonActiveMembership Tidak Sukses, membership has update`, memberId, createDateAsUTC(new Date()));
+      console.log(
+        `nonActiveMembership Tidak Sukses, membership has update`,
+        memberId,
+        createDateAsUTC(new Date())
+      );
     }
   });
 }
@@ -92,19 +166,37 @@ async function handleRememberPackage() {
     });
 
     await allMember.forEach(async (member) => {
-      let hMinus7ActiveExpired = new Date(new Date(member.tblMember.activeExpired).setDate(new Date(member.tblMember.activeExpired).getDate() - 7));
-      let hPlus7ActiveExpired = new Date(new Date(member.tblMember.activeExpired).setDate(new Date(member.tblMember.activeExpired).getDate() + 7));
+      let hMinus7ActiveExpired = new Date(
+        new Date(member.tblMember.activeExpired).setDate(
+          new Date(member.tblMember.activeExpired).getDate() - 7
+        )
+      );
+      let hPlus7ActiveExpired = new Date(
+        new Date(member.tblMember.activeExpired).setDate(
+          new Date(member.tblMember.activeExpired).getDate() + 7
+        )
+      );
 
       if (hMinus7ActiveExpired > new Date()) {
         await rememberExtendPackage(member.tblMember.memberId);
       } else if (new Date(member.tblMember.activeExpired) > new Date()) {
         await rememberNonActiveMembership(member.tblMember.memberId);
       } else if (hPlus7ActiveExpired > new Date()) {
-        await nonActiveMembership(member.tblMember.memberId, member.tblMember.activeExpired);
+        await nonActiveMembership(
+          member.tblMember.memberId,
+          member.tblMember.activeExpired
+        );
       } else {
         if (member.flagActive) {
-          console.log("Nonactive success", member.tblMember.memberId, createDateAsUTC(new Date()));
-          await tblUser.update({ flagActive: 0 }, { where: { userId: member.userId } });
+          console.log(
+            "Nonactive success",
+            member.tblMember.memberId,
+            createDateAsUTC(new Date())
+          );
+          await tblUser.update(
+            { flagActive: 0 },
+            { where: { userId: member.userId } }
+          );
         }
       }
     });
@@ -155,16 +247,33 @@ async function handleActiveLeave() {
 
         await revenue.forEach((x) => {
           let updateRevenueData;
-          if (moment(x.dateActiveMembership).format("YYYY-MM-DD") < moment().format("YYYY-MM-DD")) {
+          if (
+            moment(x.dateActiveMembership).format("YYYY-MM-DD") <
+            moment().format("YYYY-MM-DD")
+          ) {
             updateRevenueData = {
               activeMembershipExpired: createDateAsUTC(new Date()),
               status: "CLOSED",
-              pending_saldo: x.debit ? x.debit - x.kredit : x.pending_saldo - x.kredit,
+              pending_saldo: x.debit
+                ? x.debit - x.kredit
+                : x.pending_saldo - x.kredit,
             };
           } else {
             updateRevenueData = {
-              dateActiveMembership: createDateAsUTC(new Date(moment(x.dateActiveMembership).add(packageLeave.tblPackageMemberships[0].times, "days").format("YYYY-MM-DD"))),
-              activeMembershipExpired: createDateAsUTC(new Date(moment(x.activeMembershipExpired).add(packageLeave.tblPackageMemberships[0].times, "days").format("YYYY-MM-DD"))),
+              dateActiveMembership: createDateAsUTC(
+                new Date(
+                  moment(x.dateActiveMembership)
+                    .add(packageLeave.tblPackageMemberships[0].times, "days")
+                    .format("YYYY-MM-DD")
+                )
+              ),
+              activeMembershipExpired: createDateAsUTC(
+                new Date(
+                  moment(x.activeMembershipExpired)
+                    .add(packageLeave.tblPackageMemberships[0].times, "days")
+                    .format("YYYY-MM-DD")
+                )
+              ),
               status: "PENDING",
             };
           }
@@ -176,19 +285,30 @@ async function handleActiveLeave() {
 
           // delete tempRevenueData.id;
           // promises.push(tblTempRevenue.create(tempRevenueData));
-          promises.push(tblRevenue.update(updateRevenueData, { where: { id: x.id } }));
+          promises.push(
+            tblRevenue.update(updateRevenueData, { where: { id: x.id } })
+          );
         });
 
         let cutiRevenue = {
           memberId: member.memberId,
           dateActiveMembership: createDateAsUTC(new Date(member.leaveDate)),
-          activeMembershipExpired: createDateAsUTC(new Date(moment(member.leaveDate).add(packageLeave.tblPackageMemberships[0].times, "days").format("YYYY-MM-DD"))),
+          activeMembershipExpired: createDateAsUTC(
+            new Date(
+              moment(member.leaveDate)
+                .add(packageLeave.tblPackageMemberships[0].times, "days")
+                .format("YYYY-MM-DD")
+            )
+          ),
           packageBefore: "Cuti",
           packageAfter: "Cuti",
           times: packageLeave.tblPackageMemberships[0].times,
           debit: packageLeave.tblPackageMemberships[0].times,
           kredit: 0,
-          saldo_member: revenue.length ? revenue[revenue.length - 1].saldo_member - revenue[revenue.length - 1].kredit : cekSisaHari(member.activeExpired),
+          saldo_member: revenue.length
+            ? revenue[revenue.length - 1].saldo_member -
+              revenue[revenue.length - 1].kredit
+            : cekSisaHari(member.activeExpired),
           status: "OPEN",
           keterangan: "Cuti Membership",
           price: packageLeave.tblPackageMemberships[0].price,
@@ -217,7 +337,10 @@ async function handleInactiveLeave() {
   schedule.scheduleJob("15 0 * * *", async function () {
     let members = await tblMember.findAll({
       where: {
-        [Op.and]: [{ isLeave: 1 }, { [Op.or]: [{ isFreeze: 0 }, { isFreeze: null }] }],
+        [Op.and]: [
+          { isLeave: 1 },
+          { [Op.or]: [{ isFreeze: 0 }, { isFreeze: null }] },
+        ],
       },
       order: [["memberId", "ASC"]],
     });
@@ -303,11 +426,20 @@ async function handleInactiveLeave() {
             let createRevenue = {
               ...x.dataValues,
               dateActiveMembership: createDateAsUTC(new Date()),
-              activeMembershipExpired: createDateAsUTC(new Date(moment(lastDateExpired).add(x.pending_saldo, "days").format("YYYY-MM-DD"))),
+              activeMembershipExpired: createDateAsUTC(
+                new Date(
+                  moment(lastDateExpired)
+                    .add(x.pending_saldo, "days")
+                    .format("YYYY-MM-DD")
+                )
+              ),
               debit: 0,
               kredit: 0,
               status: "OPEN",
-              keterangan: x.keterangan.split(" ")[0] === "Terusan" ? x.keterangan : "Terusan" + " " + x.keterangan,
+              keterangan:
+                x.keterangan.split(" ")[0] === "Terusan"
+                  ? x.keterangan
+                  : "Terusan" + " " + x.keterangan,
               saldo_member: x.saldo_member - x.kredit,
               dateActivePT: null,
               activePtExpired: null,
@@ -318,20 +450,28 @@ async function handleInactiveLeave() {
               pricePT: null,
             };
 
-            lastDateExpired = new Date(moment(lastDateExpired).add(x.pending_saldo, "days").format("YYYY-MM-DD"));
+            lastDateExpired = new Date(
+              moment(lastDateExpired)
+                .add(x.pending_saldo, "days")
+                .format("YYYY-MM-DD")
+            );
 
             delete createRevenue.id;
             promises.push(tblRevenue.create(createRevenue));
           }
 
-          promises.push(tblRevenue.update(updateRevenueData, { where: { id: x.id } }));
+          promises.push(
+            tblRevenue.update(updateRevenueData, { where: { id: x.id } })
+          );
         });
 
         if (cutiRevenue) {
           await tblRevenue.update(
             {
               status: "CLOSED",
-              kredit: cutiRevenue.debit ? cutiRevenue.debit : cutiRevenue.pending_saldo,
+              kredit: cutiRevenue.debit
+                ? cutiRevenue.debit
+                : cutiRevenue.pending_saldo,
               pending_saldo: 0,
               activeMembershipExpired: createDateAsUTC(new Date()),
               last_kredited: createDateAsUTC(new Date()),
@@ -347,7 +487,12 @@ async function handleInactiveLeave() {
         //     },
         //   })
         // );
-        promises.push(tblMember.update({ isLeave: null, leaveDate: null, leaveStatus: null }, { where: { memberId: member.memberId } }));
+        promises.push(
+          tblMember.update(
+            { isLeave: null, leaveDate: null, leaveStatus: null },
+            { where: { memberId: member.memberId } }
+          )
+        );
         await Promise.all(promises);
 
         console.log(
@@ -363,8 +508,14 @@ async function handleInactiveLeave() {
 
 // ====================== RESERVATION (START) ======================
 async function handleReservation() {
-  let date = new Date().getDate() < 10 ? `0${new Date().getDate()}` : new Date().getDate();
-  let month = new Date().getMonth() + 1 < 10 ? `0${new Date().getMonth() + 1}` : new Date().getMonth() + 1;
+  let date =
+    new Date().getDate() < 10
+      ? `0${new Date().getDate()}`
+      : new Date().getDate();
+  let month =
+    new Date().getMonth() + 1 < 10
+      ? `0${new Date().getMonth() + 1}`
+      : new Date().getMonth() + 1;
   // let hour = new Date().getHours() < 10 ? `0${new Date().getHours()}` : new Date().getHours();
   // let minute = new Date().getMinutes() < 10 ? `0${new Date().getMinutes()}` : new Date().getMinutes();
 
@@ -389,13 +540,27 @@ async function handleReservation() {
 async function cancelReservation(idCheckin) {
   let checkin = await tblCheckinCheckouts.findByPk(idCheckin);
   if (checkin) {
-    console.log("schedule cancelReservation", idCheckin, createDateAsUTC(new Date()));
-    let date = new Date(new Date(checkin.date).getFullYear(), new Date(checkin.date).getMonth(), new Date(checkin.date).getDate(), Number(checkin.reservationTime.slice(0, 2)), Number(checkin.reservationTime.slice(3, 5)) + 15);
+    console.log(
+      "schedule cancelReservation",
+      idCheckin,
+      createDateAsUTC(new Date())
+    );
+    let date = new Date(
+      new Date(checkin.date).getFullYear(),
+      new Date(checkin.date).getMonth(),
+      new Date(checkin.date).getDate(),
+      Number(checkin.reservationTime.slice(0, 2)),
+      Number(checkin.reservationTime.slice(3, 5)) + 15
+    );
 
     schedule.scheduleJob(date, async function () {
       let checkin = await tblCheckinCheckouts.findByPk(idCheckin);
       if (checkin && !checkin.adminIdCheckin) {
-        console.log("cancelReservation Sukses", idCheckin, createDateAsUTC(new Date()));
+        console.log(
+          "cancelReservation Sukses",
+          idCheckin,
+          createDateAsUTC(new Date())
+        );
         let member = await tblMember.findOne({
           where: { userId: checkin.userId },
         });
@@ -409,7 +574,11 @@ async function cancelReservation(idCheckin) {
         await tblCancelReservation.create(dataCancelReservation);
         await tblCheckinCheckouts.destroy({ where: { checkId: idCheckin } });
       } else if (checkin && checkin.adminIdCheckin) {
-        console.log("cancelReservation Tidak Sukses, has Checkin", idCheckin, createDateAsUTC(new Date()));
+        console.log(
+          "cancelReservation Tidak Sukses, has Checkin",
+          idCheckin,
+          createDateAsUTC(new Date())
+        );
       }
     });
   }
@@ -417,8 +586,14 @@ async function cancelReservation(idCheckin) {
 
 async function deleteReservationHasPassed() {
   try {
-    let date = new Date().getDate() < 10 ? `0${new Date().getDate()}` : new Date().getDate();
-    let month = new Date().getMonth() + 1 < 10 ? `0${new Date().getMonth() + 1}` : new Date().getMonth() + 1;
+    let date =
+      new Date().getDate() < 10
+        ? `0${new Date().getDate()}`
+        : new Date().getDate();
+    let month =
+      new Date().getMonth() + 1 < 10
+        ? `0${new Date().getMonth() + 1}`
+        : new Date().getMonth() + 1;
     let hour = new Date().getHours();
     let minute = new Date().getMinutes();
 
@@ -431,7 +606,9 @@ async function deleteReservationHasPassed() {
     minute = minute < 10 ? `0${minute}` : minute;
     hour = hour < 10 ? `0${hour}` : hour;
 
-    console.log(`reservation before ${date}/${month}/${new Date().getFullYear()}, ${hour}:${minute}:00 has deleted`);
+    console.log(
+      `reservation before ${date}/${month}/${new Date().getFullYear()}, ${hour}:${minute}:00 has deleted`
+    );
     await tblCheckinCheckouts.destroy({
       where: {
         [Op.or]: [
@@ -441,7 +618,9 @@ async function deleteReservationHasPassed() {
               { adminIdCheckin: null },
               {
                 date: {
-                  [Op.lt]: new Date(`${new Date().getFullYear()}-${month}-${date}`),
+                  [Op.lt]: new Date(
+                    `${new Date().getFullYear()}-${month}-${date}`
+                  ),
                 },
               },
             ],
@@ -471,8 +650,14 @@ async function deleteReservationHasPassed() {
 async function handleTransactionExpired() {
   try {
     schedule.scheduleJob("* * * * *", async function () {
-      let date = new Date().getDate() < 10 ? `0${new Date().getDate()}` : new Date().getDate();
-      let month = new Date().getMonth() + 1 < 10 ? `0${new Date().getMonth() + 1}` : new Date().getMonth() + 1;
+      let date =
+        new Date().getDate() < 10
+          ? `0${new Date().getDate()}`
+          : new Date().getDate();
+      let month =
+        new Date().getMonth() + 1 < 10
+          ? `0${new Date().getMonth() + 1}`
+          : new Date().getMonth() + 1;
       let hour = new Date().getHours();
       let minute = new Date().getMinutes();
 
@@ -493,10 +678,15 @@ async function handleTransactionExpired() {
         let success = await tblTransaction.update(data, {
           where: { transactionId: element.transactionId },
         });
-        await tblMember.update({ isLeave: null, leaveDate: null, leaveStatus: null }, { where: { memberId: element.memberId } });
+        await tblMember.update(
+          { isLeave: null, leaveDate: null, leaveStatus: null },
+          { where: { memberId: element.memberId } }
+        );
 
         if (success[0]) {
-          console.log(`Transaction before ${date}/${month}/${new Date().getFullYear()}, ${hour}:${minute}:00 has been cancelled`);
+          console.log(
+            `Transaction before ${date}/${month}/${new Date().getFullYear()}, ${hour}:${minute}:00 has been cancelled`
+          );
         }
       });
     });
@@ -716,18 +906,38 @@ async function handleMemberBelumAktif() {
     schedule.scheduleJob("0 1 * * *", async function () {
       let data = await tblMember.findAll({
         where: {
-          [Op.and]: [{ activeDate: null }, { activeExpired: { [Op.not]: null } }, { packageMembershipId: { [Op.not]: null } }],
+          [Op.and]: [
+            { activeDate: null },
+            { activeExpired: { [Op.not]: null } },
+            { packageMembershipId: { [Op.not]: null } },
+          ],
         },
         include: { model: tblPackageMemberships, as: "packageMembership" },
       });
 
       await data.forEach(async (el) => {
         let memberActiveExpired = new Date(el.activeExpired);
-        let updateActiveExpired = createDateAsUTC(new Date(new Date().getFullYear(), new Date().getMonth(), new Date().getDate() + el.packageMembership.times));
-        let updateExcitingActiveExpired = createDateAsUTC(new Date(new Date(el.activeExpired).getFullYear(), new Date(el.activeExpired).getMonth(), new Date(el.activeExpired).getDate() + 1));
+        let updateActiveExpired = createDateAsUTC(
+          new Date(
+            new Date().getFullYear(),
+            new Date().getMonth(),
+            new Date().getDate() + el.packageMembership.times
+          )
+        );
+        let updateExcitingActiveExpired = createDateAsUTC(
+          new Date(
+            new Date(el.activeExpired).getFullYear(),
+            new Date(el.activeExpired).getMonth(),
+            new Date(el.activeExpired).getDate() + 1
+          )
+        );
         // let updateFreeze = moment(el.freezeDate).format("YYYY-MM-DD") <= moment().format("YYYY-MM-DD")
         let success = await tblMember.update(
-          { activeExpired: el.activeExpired && el.isFreeze ? updateExcitingActiveExpired : updateActiveExpired,
+          {
+            activeExpired:
+              el.activeExpired && el.isFreeze
+                ? updateExcitingActiveExpired
+                : updateActiveExpired,
             // freezeDate: el.isFreeze && updateFreeze ? createDateAsUTC(new Date()) : el.freezeDate,
             // activeDate: el.isFreeze ? createDateAsUTC(new Date()) : el.activeDate
           },
@@ -754,14 +964,48 @@ async function handleMemberBelumAktif() {
         revenue.forEach((x) => {
           let updateData = {
             dateActiveMembership:
-              moment(x.dateActiveMembership).format("YYYY-MM-DD") <= moment().format("YYYY-MM-DD")
-                ? createDateAsUTC(new Date(new Date().getFullYear(), new Date().getMonth(), new Date().getDate()))
-                : createDateAsUTC(new Date(new Date(activeMembershipExpiredBefore).getFullYear(), new Date(activeMembershipExpiredBefore).getMonth(), new Date(activeMembershipExpiredBefore).getDate())),
+              moment(x.dateActiveMembership).format("YYYY-MM-DD") <=
+              moment().format("YYYY-MM-DD")
+                ? createDateAsUTC(
+                    new Date(
+                      new Date().getFullYear(),
+                      new Date().getMonth(),
+                      new Date().getDate()
+                    )
+                  )
+                : createDateAsUTC(
+                    new Date(
+                      new Date(activeMembershipExpiredBefore).getFullYear(),
+                      new Date(activeMembershipExpiredBefore).getMonth(),
+                      new Date(activeMembershipExpiredBefore).getDate()
+                    )
+                  ),
             activeMembershipExpired:
-              x.activeMembershipExpired && x.kredit ? createDateAsUTC(new Date(new Date(x.activeMembershipExpired).getFullYear(), new Date(x.activeMembershipExpired).getMonth(), new Date(x.activeMembershipExpired).getDate() + 1))
-                : moment(x.dateActiveMembership).format("YYYY-MM-DD") <= moment().format("YYYY-MM-DD")
-                ? createDateAsUTC(new Date(new Date().getFullYear(), new Date().getMonth(), new Date().getDate() + x.times))
-                : createDateAsUTC(new Date(new Date(activeMembershipExpiredBefore).getFullYear(), new Date(activeMembershipExpiredBefore).getMonth(), new Date(activeMembershipExpiredBefore).getDate() + x.times)),
+              x.activeMembershipExpired && x.kredit
+                ? createDateAsUTC(
+                    new Date(
+                      new Date(x.activeMembershipExpired).getFullYear(),
+                      new Date(x.activeMembershipExpired).getMonth(),
+                      new Date(x.activeMembershipExpired).getDate() + 1
+                    )
+                  )
+                : moment(x.dateActiveMembership).format("YYYY-MM-DD") <=
+                  moment().format("YYYY-MM-DD")
+                ? createDateAsUTC(
+                    new Date(
+                      new Date().getFullYear(),
+                      new Date().getMonth(),
+                      new Date().getDate() + x.times
+                    )
+                  )
+                : createDateAsUTC(
+                    new Date(
+                      new Date(activeMembershipExpiredBefore).getFullYear(),
+                      new Date(activeMembershipExpiredBefore).getMonth(),
+                      new Date(activeMembershipExpiredBefore).getDate() +
+                        x.times
+                    )
+                  ),
           };
 
           activeMembershipExpiredBefore = updateData.activeMembershipExpired;
@@ -771,7 +1015,9 @@ async function handleMemberBelumAktif() {
         await Promise.all(promises);
 
         if (success[0]) {
-          console.log(`Active Expired Member Not Active With Member ID ${el.memberId} Has Been Extended ${el.packageMembership.times} Day To ${updateActiveExpired}, Where Before ${memberActiveExpired}`);
+          console.log(
+            `Active Expired Member Not Active With Member ID ${el.memberId} Has Been Extended ${el.packageMembership.times} Day To ${updateActiveExpired}, Where Before ${memberActiveExpired}`
+          );
         }
       });
     });
@@ -809,17 +1055,29 @@ async function handleKreditMember() {
       let promises = [];
 
       await revenue.forEach((x) => {
-        if (!x.tblMember.isFreeze && x.tblMember.activeDate && moment(new Date(x.last_kredited)).format("YYYY-MM-DD") <= moment().format("YYYY-MM-DD")) {
+        if (
+          !x.tblMember.isFreeze &&
+          x.tblMember.activeDate &&
+          moment(new Date(x.last_kredited)).format("YYYY-MM-DD") <=
+            moment().format("YYYY-MM-DD")
+        ) {
           let update = {
             kredit: Math.abs(cekSisaHari(x.dateActiveMembership)) + 1,
             last_kredited: createDateAsUTC(new Date()),
           };
 
-          if ((update.kredit === x.debit && x.debit) || (update.kredit === x.pending_saldo && x.pending_saldo)) {
+          if (
+            (update.kredit === x.debit && x.debit) ||
+            (update.kredit === x.pending_saldo && x.pending_saldo)
+          ) {
             update.status = "CLOSED";
             update.pending_saldo = 0;
           } else if (x.status === "PENDING") {
-            if (x.packageAfter !== "1DP" || x.packageAfter !== "Cuti" || x.packageAfter !== "Beku") {
+            if (
+              x.packageAfter !== "1DP" ||
+              x.packageAfter !== "Cuti" ||
+              x.packageAfter !== "Beku"
+            ) {
               promises.push(
                 tblMember.update(
                   { packageMembershipId: x.packageAfter },
@@ -855,120 +1113,167 @@ async function handleKreditMember() {
 //===================== HANGUSKAN PT MEMBERS APABILA MEMBER TIDAK PERPANJANG MEMBERSHIPS ===============
 async function handleScorchedPTMember() {
   try {
-    schedule.scheduleJob("0 0 5 * *", async function() {
+    schedule.scheduleJob("* * * * *", async function () {
       let data = await tblMember.findAll({
         where: {
-          [Op.and]: [{ ptSession: { [Op.gt]: 0 } }, { activeExpired: { [Op.lte]: createDateAsUTC(new Date()) } }, { isFreeze: { [Op.not]: true } }, { isLeave: { [Op.not]: true } }],
+          [Op.and]: [
+            { ptSession: { [Op.gt]: 0 } },
+            { activeExpired: { [Op.lte]: createDateAsUTC(new Date()) } },
+            { isFreeze: { [Op.not]: true } },
+            { isLeave: { [Op.not]: true } },
+          ],
         },
       });
 
-      const pastDate = moment(new Date()).subtract(5, "days").format("YYYY-MM-DD")
-      const pastMonth = createDateAsUTC(new Date(new Date(pastDate).getFullYear(), new Date(pastDate).getMonth() - 1, new Date(pastDate).getDate()))
-
+      const passDate = moment().subtract(5, "days").format("YYYY-MM-DD");
       const buildClassPt = await tblClassPt.create({
-        ptId: 2, time: "10:00:00", date: new Date(pastDate).getDate(), week: getWeek(moment(pastMonth).format("YYYY-MM-DD")), month: new Date().getMonth(), year: new Date().getFullYear(), isOnline: false
-      })
+        ptId: 2,
+        time: "10:00:00",
+        date: new Date(passDate).getDate(),
+        week: getWeek(passDate),
+        month: new Date().getMonth(),
+        year: new Date().getFullYear(),
+        isOnline: false,
+      });
 
       await data.forEach(async (el) => {
-          await tblHistoryRemain.create(
-            { memberId: el.memberId, sisaPT: el.ptSession, expiredDate: el.activeExpired }
-          );
-        
+        await tblHistoryRemain.create({
+          memberId: el.memberId,
+          sisaPT: el.ptSession,
+          expiredDate: el.activeExpired,
+        });
+
         let revenue = await tblRevenue.findAll({
           where: {
-            [Op.and]: [{ memberId: el.memberId }, { packagePT: { [Op.not]: null } }, { isDone: { [Op.not]: true } }],
+            [Op.and]: [
+              { memberId: el.memberId },
+              { packagePT: { [Op.not]: null } },
+              { isDone: { [Op.not]: true } },
+            ],
           },
           order: [["id", "ASC"]],
         });
-       
+
         if (revenue.length) {
-          
           let promises = [];
           let calcRev1st = revenue[0].timesPT - revenue[0].PTTerpakai;
           let ptSessionFirst = el.ptSession - calcRev1st;
           let flag = false;
-            await revenue.forEach((x) => {
-              const ifSeasonMoreThanRev01 = el.ptSession + revenue[0].PTTerpakai;
-              
-              if(ifSeasonMoreThanRev01 > revenue[0].timesPT){ 
-                flag = revenue.length > 2 ? true : false      
-                let update = {
-                  dateActivePT: x.dateActivePT ?? createDateAsUTC(new Date(`${buildClassPt. year}-${buildClassPt.month}-${buildClassPt.date}`)),
-                  PTTerpakai: x.timesPT,
-                  isDone: true,
-                  activePtExpired: createDateAsUTC(new Date(`${buildClassPt.year}-${buildClassPt.month}-${buildClassPt.date}`))
-                };
-                promises.push(tblRevenue.update(update, { where: { id: x.id } }));
-              }else{
-                let update = {
-                    dateActivePT: revenue[0].dateActivePT ?? createDateAsUTC(new Date(`${buildClassPt. year}-${buildClassPt.month}-${buildClassPt.date}`)),
-                    PTTerpakai: revenue[0].timesPT,
-                    isDone: true,
-                    activePtExpired: createDateAsUTC(new Date(`${buildClassPt.year}-${buildClassPt.month}-${buildClassPt.date}`))
-                  };
-                  promises.push(tblRevenue.update(update, { where: { id: revenue[0].id } }));
-              }
-            });
-            
-            if(ptSessionFirst > 0 && !flag) {
-              for (let i = 0; i < revenue[1].timesPT; i++) {
-                let createData = {
-                  userId: el.userId, classPtId: buildClassPt.classPtId, revenueId:revenue[1].id
-                }
-                promises.push(tblHistoryPT.create(createData));
-              }
-              for (let i = 0; i < calcRev1st; i++) {
-                let createData = {
-                    userId: el.userId, classPtId: buildClassPt.classPtId, revenueId:revenue[0].id
-                  }
-                  promises.push(tblHistoryPT.create(createData));
-              }
-            } else if(ptSessionFirst > 0 && flag) {
-              for (let i = 0; i < revenue[1].timesPT; i++) {
-                let createData = {
-                  userId: el.userId, classPtId: buildClassPt.classPtId, revenueId:revenue[1].id
-                }
-                promises.push(tblHistoryPT.create(createData));
-              }
-              for (let i = 0; i < calcRev1st; i++) {
-                let createData = {
-                    userId: el.userId, classPtId: buildClassPt.classPtId, revenueId:revenue[0].id
-                  }
-                  promises.push(tblHistoryPT.create(createData));
-              }
-              for (let i = 0; i < revenue[2].timesPT; i++) {
-                let createData = {
-                    userId: el.userId, classPtId: buildClassPt.classPtId, revenueId:revenue[2].id
-                  }
-                  promises.push(tblHistoryPT.create(createData));
-              }
-              if(revenue[3]) console.log("<--------- hallo wordl ---------->")
+          await revenue.forEach((x) => {
+            const ifSeasonMoreThanRev01 = el.ptSession + revenue[0].PTTerpakai;
+
+            if (ifSeasonMoreThanRev01 > revenue[0].timesPT) {
+              flag = revenue.length > 2 ? true : false;
+              let update = {
+                dateActivePT:
+                  x.dateActivePT ??
+                  createDateAsUTC(
+                    new Date(
+                      `${buildClassPt.year}-${buildClassPt.month}-${buildClassPt.date}`
+                    )
+                  ),
+                PTTerpakai: x.timesPT,
+                isDone: true,
+                activePtExpired: createDateAsUTC(
+                  new Date(
+                    `${buildClassPt.year}-${buildClassPt.month}-${buildClassPt.date}`
+                  )
+                ),
+              };
+              promises.push(tblRevenue.update(update, { where: { id: x.id } }));
             } else {
-              for (let i = 0; i < el.ptSession; i++) {
-                let createData = {
-                    userId: el.userId, classPtId: buildClassPt.classPtId, revenueId:revenue[0].id
-                  }
-                  promises.push(tblHistoryPT.create(createData));
-              }
+              let update = {
+                dateActivePT:
+                  revenue[0].dateActivePT ??
+                  createDateAsUTC(
+                    new Date(
+                      `${buildClassPt.year}-${buildClassPt.month}-${buildClassPt.date}`
+                    )
+                  ),
+                PTTerpakai: revenue[0].timesPT,
+                isDone: true,
+                activePtExpired: createDateAsUTC(
+                  new Date(
+                    `${buildClassPt.year}-${buildClassPt.month}-${buildClassPt.date}`
+                  )
+                ),
+              };
+              promises.push(
+                tblRevenue.update(update, { where: { id: revenue[0].id } })
+              );
             }
+          });
+
+          if (ptSessionFirst > 0 && !flag) {
+            for (let i = 0; i < revenue[1].timesPT; i++) {
+              let createData = {
+                userId: el.userId,
+                classPtId: buildClassPt.classPtId,
+                revenueId: revenue[1].id,
+              };
+              promises.push(tblHistoryPT.create(createData));
+            }
+            for (let i = 0; i < calcRev1st; i++) {
+              let createData = {
+                userId: el.userId,
+                classPtId: buildClassPt.classPtId,
+                revenueId: revenue[0].id,
+              };
+              promises.push(tblHistoryPT.create(createData));
+            }
+          } else if (ptSessionFirst > 0 && flag) {
+            for (let i = 0; i < revenue[1].timesPT; i++) {
+              let createData = {
+                userId: el.userId,
+                classPtId: buildClassPt.classPtId,
+                revenueId: revenue[1].id,
+              };
+              promises.push(tblHistoryPT.create(createData));
+            }
+            for (let i = 0; i < calcRev1st; i++) {
+              let createData = {
+                userId: el.userId,
+                classPtId: buildClassPt.classPtId,
+                revenueId: revenue[0].id,
+              };
+              promises.push(tblHistoryPT.create(createData));
+            }
+            for (let i = 0; i < revenue[2].timesPT; i++) {
+              let createData = {
+                userId: el.userId,
+                classPtId: buildClassPt.classPtId,
+                revenueId: revenue[2].id,
+              };
+              promises.push(tblHistoryPT.create(createData));
+            }
+            if (revenue[3]) console.log("<--------- hallo wordl ---------->");
+          } else {
+            for (let i = 0; i < el.ptSession; i++) {
+              let createData = {
+                userId: el.userId,
+                classPtId: buildClassPt.classPtId,
+                revenueId: revenue[0].id,
+              };
+              promises.push(tblHistoryPT.create(createData));
+            }
+          }
 
           if (promises.length) await Promise.all(promises);
           console.log("ptSession membership member telah dihanguskan.");
         }
-        
-      })
+      });
       // console.log(data[0].tblRevenues.length, "<------ hallo world ------>")
-      if(data.length){
+      if (data.length) {
         await data.forEach(async (el) => {
           await tblMember.update(
-            { ptSession: 0 }, { where: { memberId: el.memberId } }
+            { ptSession: 0 },
+            { where: { memberId: el.memberId } }
           );
-        })
+        });
       }
-    
-    })
+    });
   } catch (error) {
-    console.log(error)
+    console.log(error);
   }
 }
 //===================== HANGUSKAN PT MEMBERS APABILA MEMBER TIDAK PERPANJANG MEMBERSHIPS (END) ===============
@@ -976,55 +1281,96 @@ async function handleScorchedPTMember() {
 //===================== HANGUSKAN PACKAGE CLASS APABILA MEMBER TIDAK PERPANJANG MEMBERSHIPS DAN PACKAGE CLASS EXPIRED ===============
 async function handleScorchedPackageClass() {
   try {
-    schedule.scheduleJob("0 0 * * 1", async function() {
+    schedule.scheduleJob("0 0 * * 1", async function () {
       let packageClass = await tblPackageClasses.findAll({
         where: {
-          classSession: { [Op.ne]: 0 }
-        }, include: [{ model: tblMember }, { model: tblSubCategoryMembership }],
+          classSession: { [Op.ne]: 0 },
+        },
+        include: [{ model: tblMember }, { model: tblSubCategoryMembership }],
       });
-        
-        await packageClass.forEach(async (el) => {
-          if(createDateAsUTC(new Date(el.tblMember.activeExpired)) <= createDateAsUTC(new Date()) || createDateAsUTC(new Date(el.expiredDate)) <= createDateAsUTC(new Date())){
-            if(el.tblSubCategoryMembership.isPremium) {
-              await tblHistoryRemain.create(
-                { memberId: el.memberId, sisaKelasPremium: el.classSession, idClass: el.subCategoryMembershipId, expiredDate: el.expiredDate }
-              );
-            
-              let revenue = await tblRevenue.findAll({
-                where: {
-                  [Op.and]: [{ memberId: el.memberId }, { packageBefore: el.tblSubCategoryMembership.subCategoryMembership }, { status: { [Op.not]: "CLOSED" } }, { packageAfter: { [Op.is]: null } }, { debit: { [Op.is]: null } }],
-                }, order: [["id", "ASC"]],
-              });
-              
-              let promises = [];
-              await revenue.forEach((x) => {
-                let update = {
-                  status: "CLOSED",
-                  kredit: x.times
-                };
+
+      await packageClass.forEach(async (el) => {
+        if (
+          createDateAsUTC(new Date(el.tblMember.activeExpired)) <=
+            createDateAsUTC(new Date()) ||
+          createDateAsUTC(new Date(el.expiredDate)) <=
+            createDateAsUTC(new Date())
+        ) {
+          if (el.tblSubCategoryMembership.isPremium) {
+            await tblHistoryRemain.create({
+              memberId: el.memberId,
+              sisaKelasPremium: el.classSession,
+              idClass: el.subCategoryMembershipId,
+              expiredDate: el.expiredDate,
+            });
+
+            let revenue = await tblRevenue.findAll({
+              where: {
+                [Op.and]: [
+                  { memberId: el.memberId },
+                  {
+                    packageBefore:
+                      el.tblSubCategoryMembership.subCategoryMembership,
+                  },
+                  { status: { [Op.not]: "CLOSED" } },
+                  { packageAfter: { [Op.is]: null } },
+                  { debit: { [Op.is]: null } },
+                ],
+              },
+              order: [["id", "ASC"]],
+            });
+
+            let promises = [];
+            await revenue.forEach((x) => {
+              let update = {
+                status: "CLOSED",
+                kredit: x.times,
+              };
               promises.push(tblRevenue.update(update, { where: { id: x.id } }));
-              });
-              await Promise.all(promises);
-            } else await tblHistoryRemain.create({ memberId: el.memberId, sisaKelasBasic: el.classSession, idClass: el.subCategoryMembershipId, expiredDate: el.expiredDate });
-          }    
-        })
+            });
+            await Promise.all(promises);
+          } else
+            await tblHistoryRemain.create({
+              memberId: el.memberId,
+              sisaKelasBasic: el.classSession,
+              idClass: el.subCategoryMembershipId,
+              expiredDate: el.expiredDate,
+            });
+        }
+      });
 
-        await packageClass.forEach(async (el) => {
-          if(createDateAsUTC(new Date(el.tblMember.activeExpired)) <= createDateAsUTC(new Date()) || createDateAsUTC(new Date(el.expiredDate)) <= createDateAsUTC(new Date())){
-            await tblPackageClasses.destroy({ where: { id: el.id }})
-          }
-        })
-
-    })
+      await packageClass.forEach(async (el) => {
+        if (
+          createDateAsUTC(new Date(el.tblMember.activeExpired)) <=
+            createDateAsUTC(new Date()) ||
+          createDateAsUTC(new Date(el.expiredDate)) <=
+            createDateAsUTC(new Date())
+        ) {
+          await tblPackageClasses.destroy({ where: { id: el.id } });
+        }
+      });
+    });
   } catch (error) {
-    console.log(error)
+    console.log(error);
   }
 }
 //===================== HANGUSKAN PACKAGE CLASS APABILA MEMBER TIDAK PERPANJANG MEMBERSHIPS DAN PACKAGE CLASS EXPIRED (END) ===============
 
-
 function handleGetDate(args) {
-  const months = ["Januari", "Februari", "Maret", "April", "Mei", "Juni", "Juli", "Agustus", "September", "Oktober", "November", "Desember"];
+  const months = [
+    "Januari",
+    "Februari",
+    "Maret",
+    "April",
+    "Mei",
+    "Juni",
+    "Juli",
+    "Agustus",
+    "September",
+    "Oktober",
+    "November",
+    "Desember",
+  ];
 
   return `${args.getDate()} ${months[args.getMonth()]} ${args.getFullYear()}`;
 }

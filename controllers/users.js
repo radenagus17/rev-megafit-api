@@ -516,11 +516,13 @@ class usersController {
       let newMember = {
         memberId: lastIDMember[0].memberId + 1,
         cardImage: `/qr/${lastIDMember[0].memberId + 1}.png`,
-        userId: createUser.null,
+        userId: createUser.userId,
         activeExpired: createDateAsUTC(new Date(moment().add(1, "days"))),
         packageMembershipId: "Trial",
         hasSeenSdkFreeze: true,
         invited_by: member,
+        isHealthy: true,
+        healthExpiredAt: createDateAsUTC(new Date()),
       };
 
       let createMember = await tblMember.create(newMember);
@@ -738,7 +740,7 @@ class usersController {
       <img src="${baseUrlServer}/asset/img/pola-megafit_black.png" height="30" width="150" alt="logo-megafit" />
       <p style="font-size: 20px;"><b>Hai ${user.nickname}</b></p>
       <p style="margin:10px 0px;">Kami baru saja menerima permintaan untuk mengganti password.</p>
-      <p style="margin:10px 0px;">Silahkan klik link di bawah dan ikuti petunjuk untuk mengganti password Anda.</p>
+      <p style="margin:10px 0px;">Silahkan copy kode OTP di bawah dan ikuti petunjuk untuk mengganti password Anda.</p>
       <img src="${baseUrlServer}/asset/img/forget_password_1.png" height="150" width="150" alt="logo-forget" />
       <br />
       <p><b>Username : ${user.username}</b></p>

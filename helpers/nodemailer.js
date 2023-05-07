@@ -6,7 +6,7 @@ const baseUrlClient = "http://megafit.co.id";
 
 let transporter = nodemailer.createTransport({
   host: "mail.megafit.co.id",
-  port: 587, // 456
+  port: 587, // 465
   secure: false, // true
   auth: {
     user: "info@megafit.co.id",
@@ -35,7 +35,12 @@ const footerMail = `
     <p style="margin:0px 5px 0px 0px">Jika butuh bantuan <a href="https://api.whatsapp.com/send?phone=6285890004840" style="color:#91c640;">klik sini</a></p>
   </div>`;
 
-async function sendEmailRememberMembership(nickname, email, activeExpired, keterangan) {
+async function sendEmailRememberMembership(
+  nickname,
+  email,
+  activeExpired,
+  keterangan
+) {
   mailOptions.to = email;
   if (keterangan) {
     mailOptions.subject = `Hi ${nickname} membership Megafit sudah berakhir & masuk masa tenggang, ayo perpanjang`;
@@ -45,7 +50,11 @@ async function sendEmailRememberMembership(nickname, email, activeExpired, keter
   mailOptions.html = `
     <img src="http://209.97.175.174:3000/asset/img/pola-megafit_black.png" height="30" width="150" alt="logo-megafit" />
   
-    <p style="font-size: 20px;margin-bottom: 5px;"><b>Hai ${nickname}, membership Megafit ${keterangan ? `sudah berakhir & masuk masa tenggang` : `akan masuk masa tenggang pada ${activeExpired}`}</b></p>
+    <p style="font-size: 20px;margin-bottom: 5px;"><b>Hai ${nickname}, membership Megafit ${
+    keterangan
+      ? `sudah berakhir & masuk masa tenggang`
+      : `akan masuk masa tenggang pada ${activeExpired}`
+  }</b></p>
     <p style="margin:10px 0px;">Perpanjang membership agar tetap bisa terus ke Megafit</p>
   
     <img src="http://209.97.175.174:3000/asset/img/perpanjang_membership.png" height="150" width="230" alt="logo-forget" />

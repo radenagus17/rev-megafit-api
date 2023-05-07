@@ -8,6 +8,7 @@ const {
   tblPackageMemberships,
   tblRevenue,
   tblStaff,
+  sequelize,
 } = require("../models");
 const Op = require("sequelize").Op;
 const { getWeek } = require("../helpers/getNumberOfWeek");
@@ -224,37 +225,34 @@ class classPtsController {
         if (!revenue.length) throw { name: "sessionDone" };
         // let transaction = await checkTransaction(req.user.userId);
 
-        // cek data historyPT jika ada yang kembar
-        let cekDataHistory = await tblHistoryPT.findOne({
-          where: {
-            [Op.and]: [
-              {
-                classPtId: req.params.id,
-              },
-              {
-                userId: req.user.userId,
-              },
-            ],
-          },
-        });
-
-        if (cekDataHistory) throw { name: "notFound" };
-
         //* cek data classPtId yang masuk
         // let classPt = await checkClassPtId(req.params.id, userId);
 
-        let newData = {
-          userId: req.user.userId,
-          classPtId: req.params.id,
-          transactionId: null,
-          revenueId: revenue[0].id,
-        };
+        let joinPtClass = "";
+        await sequelize.transaction(async (t) => {
+          joinPtClass = await tblHistoryPT.findOrCreate({
+            where: { classPtId: req.params.id, userId: req.user.userId },
+            defaults: {
+              userId: req.user.userId,
+              classPtId: req.params.id,
+              transactionId: null,
+              revenueId: revenue[0].id,
+            },
+            transaction: t,
+          });
+        });
 
-        let joinPtClass = await tblHistoryPT.create(newData);
+        if (!joinPtClass[1]) throw { name: "notFound" };
+        // let newData = {
+        //   userId: req.user.userId,
+        //   classPtId: req.params.id,
+        //   transactionId: null,
+        //   revenueId: revenue[0].id,
+        // };
 
-        let dataReturn = await tblClassPt.findByPk(
-          joinPtClass.dataValues.classPtId
-        );
+        // let joinPtClass = await tblHistoryPT.create(newData);
+
+        let dataReturn = await tblClassPt.findByPk(joinPtClass[0].classPtId);
 
         let updateData = {
           ptSession: member.ptSession - 1,
