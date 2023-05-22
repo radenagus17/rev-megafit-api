@@ -9,9 +9,18 @@ module.exports = (sequelize, DataTypes) => {
      */
     static associate(models) {
       // define association here
-      tblOrderList.belongsTo(models.tblTransaction, { foreignKey: "transactionId" });
-      tblOrderList.belongsTo(models.tblPackageMemberships, { foreignKey: "packageMembershipId" });
-      tblOrderList.belongsTo(models.tblCategoryMembership, { foreignKey: "categoryMembershipId" });
+      tblOrderList.belongsTo(models.tblTransaction, {
+        foreignKey: "transactionId",
+      });
+      tblOrderList.belongsTo(models.tblPackageMemberships, {
+        foreignKey: "packageMembershipId",
+      });
+      tblOrderList.belongsTo(models.tblCategoryMembership, {
+        foreignKey: "categoryMembershipId",
+      });
+      tblOrderList.belongsTo(models.tblPromo, {
+        foreignKey: "promoId",
+      });
     }
   }
   tblOrderList.init(
@@ -21,6 +30,7 @@ module.exports = (sequelize, DataTypes) => {
       packageMembershipId: DataTypes.STRING,
       quantity: DataTypes.INTEGER,
       totalPrice: DataTypes.INTEGER,
+      promoId: DataTypes.INTEGER,
       categoryMembershipId: DataTypes.INTEGER,
     },
     {

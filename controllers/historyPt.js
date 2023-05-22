@@ -1,4 +1,10 @@
-const { tblClassPt, tblUser, tblHistoryPT, tblMember, tblRevenue } = require("../models");
+const {
+  tblClassPt,
+  tblUser,
+  tblHistoryPT,
+  tblMember,
+  tblRevenue,
+} = require("../models");
 
 const Op = require("sequelize").Op;
 const { getWeek } = require("../helpers/getNumberOfWeek");
@@ -27,7 +33,9 @@ class historyPT {
                   {
                     [Op.and]: [
                       { time: { [Op.lte]: hour } },
-                      { date: { [Op.lte]: new Date(req.query.date).getDate() } },
+                      {
+                        date: { [Op.lte]: new Date(req.query.date).getDate() },
+                      },
                       {
                         month: {
                           [Op.lte]: new Date(req.query.date).getMonth() + 1,
@@ -110,7 +118,9 @@ class historyPT {
                   {
                     [Op.and]: [
                       { time: { [Op.gte]: hour } },
-                      { date: { [Op.gte]: new Date(req.query.date).getDate() } },
+                      {
+                        date: { [Op.gte]: new Date(req.query.date).getDate() },
+                      },
                       {
                         month: {
                           [Op.gte]: new Date(req.query.date).getMonth() + 1,
@@ -176,16 +186,28 @@ class historyPT {
           }
         );
 
-        data = history.filter((x) => moment(`${x.year}-${x.month}-${x.date}`, "YYYY-MM-DD") >= moment(req.query.firstDate, "YYYY-MM-DD") && moment(`${x.year}-${x.month}-${x.date}`, "YYYY-MM-DD") <= moment(req.query.endDate, "YYYY-MM-DD"));
+        data = history.filter(
+          (x) =>
+            moment(`${x.year}-${x.month}-${x.date}`, "YYYY-MM-DD") >=
+              moment(req.query.firstDate, "YYYY-MM-DD") &&
+            moment(`${x.year}-${x.month}-${x.date}`, "YYYY-MM-DD") <=
+              moment(req.query.endDate, "YYYY-MM-DD")
+        );
       } else if (req.query.schedule === "true") {
         let history = await tblHistoryPT.sequelize.query(
-          "SELECT member.nickname AS `Member`,tblUsers.fullname AS `PT`,tblClassPts.time,tblClassPts.date,tblClassPts.week,tblClassPts.month,tblClassPts.year FROM `tblHistoryPTs`  INNER JOIN tblUsers AS `member` ON tblHistoryPTs.userId = member.userId LEFT OUTER JOIN tblClassPts ON tblHistoryPTs.classPtId = tblClassPts.classPtId LEFT OUTER JOIN tblUsers on tblClassPts.ptId = tblUsers.userId",
+          "SELECT member.nickname AS `Member`,member.fullname AS `MemberFullname`,tblUsers.fullname AS `PT`,tblClassPts.time,tblClassPts.date,tblClassPts.week,tblClassPts.month,tblClassPts.year FROM `tblHistoryPTs`  INNER JOIN tblUsers AS `member` ON tblHistoryPTs.userId = member.userId LEFT OUTER JOIN tblClassPts ON tblHistoryPTs.classPtId = tblClassPts.classPtId LEFT OUTER JOIN tblUsers on tblClassPts.ptId = tblUsers.userId",
           {
             raw: true,
             type: QueryTypes.SELECT,
           }
         );
-        let todayData = history.filter((x) => moment(`${x.year}-${x.month}-${x.date}`).format("YYYY-MM-DD") === req.query.day).sort((a, b) => a.time - b.time);
+        let todayData = history
+          .filter(
+            (x) =>
+              moment(`${x.year}-${x.month}-${x.date}`).format("YYYY-MM-DD") ===
+              req.query.day
+          )
+          .sort((a, b) => a.time - b.time);
 
         let tmpData = [];
         let openTime = 9;
@@ -218,7 +240,10 @@ class historyPT {
         await data.sort(compareMonth);
         await data.sort(compareYear);
       }
-      if (data) res.status(200).json({ message: "Success", totalRecord: data.length, data });
+      if (data)
+        res
+          .status(200)
+          .json({ message: "Success", totalRecord: data.length, data });
     } catch (error) {
       console.log(error);
       next(error);
@@ -267,31 +292,50 @@ class historyPT {
   static async delete(req, res, next) {
     try {
       let cancelClass;
-      cancelClass = await tblHistoryPT.destroy({ where: { id: req.params.id } });
+      cancelClass = await tblHistoryPT.destroy({
+        where: { id: req.params.id },
+      });
 
       if (!cancelClass) throw { name: "notFound" };
       res.status(200).json({ message: "Success", idDeleted: req.params.id });
 
-      let member = await tblMember.findOne({ where: { userId: req.user.userId } });
+      let member = await tblMember.findOne({
+        where: { userId: req.user.userId },
+      });
       await tblMember.update(
         {
           ptSession: member.ptSession + 1,
-          sisaLastPTSession: member.sisaLastPTSession == null ? null : member.sisaLastPTSession + 1,
-          activeDatePackagePT: member.sisaLastPTSession + 1 === 1 ? null : member.activeDatePackagePT,
+          sisaLastPTSession:
+            member.sisaLastPTSession == null
+              ? null
+              : member.sisaLastPTSession + 1,
+          activeDatePackagePT:
+            member.sisaLastPTSession + 1 === 1
+              ? null
+              : member.activeDatePackagePT,
         },
         { where: { userId: req.user.userId } }
       );
 
       let revenue = await tblRevenue.findAll({
         where: {
-          [Op.and]: [{ memberId: member.memberId }, { packagePT: { [Op.not]: null } }],
+          [Op.and]: [
+            { memberId: member.memberId },
+            { packagePT: { [Op.not]: null } },
+          ],
         },
         order: [["updatedAt", "DESC"]],
       });
 
-      if (revenue.length && revenue[0].dateActivePT && revenue[0].PTTerpakai !== null && revenue[0].isDone !== null) {
+      if (
+        revenue.length &&
+        revenue[0].dateActivePT &&
+        revenue[0].PTTerpakai !== null &&
+        revenue[0].isDone !== null
+      ) {
         let revenueData = {
-          dateActivePT: revenue[0].PTTerpakai - 1 === 0 ? null : revenue[0].dateActivePT,
+          dateActivePT:
+            revenue[0].PTTerpakai - 1 === 0 ? null : revenue[0].dateActivePT,
           PTTerpakai: revenue[0].PTTerpakai - 1,
           isDone: false,
         };

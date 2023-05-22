@@ -229,7 +229,7 @@ class TransactionController {
       });
 
       //todo: check transaction and user client for payment (onGoingTransaction)
-      let { transactionId, amount } = await tblTransaction.findOne({
+      let seeTrans = await tblTransaction.findOne({
         where: {
           memberId: req.body.memberId,
         },
@@ -246,7 +246,7 @@ class TransactionController {
         cashierId: staff.staffId,
         staffId: req.body.methodPayment === "CASHLEZ" ? staff.staffId : null,
         methodPayment: req.body.methodPayment,
-        amount: member.tblUser.agreePromo ? amount : req.body.amount,
+        amount: member.tblUser.agreePromo ? seeTrans.amount : req.body.amount,
         admPrice: adminFee ? adminFee.price : null,
         status:
           req.body.methodPayment === "CASHLEZ"
@@ -298,6 +298,13 @@ class TransactionController {
           where: { transactionId: req.body.onGoingTransactionId },
         });
       else await tblTransaction.create(transactionData);
+
+      let { transactionId } = await tblTransaction.findOne({
+        where: {
+          memberId: req.body.memberId,
+        },
+        order: [["createdAt", "DESC"]],
+      });
 
       // FILTER CART DARI ADMIN FEE
       let fixedCart = req.body.cart.filter((el) => el.packageMembershipId);
@@ -390,31 +397,53 @@ class TransactionController {
           activeExpired:
             cekSisaHari(member.activeExpired) > 0 &&
             member.packageMembershipId !== "Trial"
-              ? createDateAsUTC(
-                  new Date(
-                    new Date(member.activeExpired).getFullYear(),
-                    new Date(member.activeExpired).getMonth(),
-                    new Date(member.activeExpired).getDate() +
-                      ((paketMember &&
-                        paketMember.tblPackageMembership.times) ||
-                        0) +
-                      ((paketLeave && paketLeave.tblPackageMembership.times) ||
-                        0)
+              ? moment(member.activeExpired)
+                  .add(
+                    (paketMember && paketMember.tblPackageMembership.times) ||
+                      0,
+                    "days"
                   )
-                )
-              : paketMember &&
-                createDateAsUTC(
-                  new Date(
-                    new Date().getFullYear(),
-                    new Date().getMonth(),
-                    new Date().getDate() +
-                      ((paketMember &&
-                        paketMember.tblPackageMembership.times) ||
-                        0) +
-                      ((paketLeave && paketLeave.tblPackageMembership.times) ||
-                        0)
+                  .add(
+                    (paketLeave && paketLeave.tblPackageMembership.times) || 0,
+                    "days"
                   )
-                ),
+                  .format("YYYY-MM-DD")
+              : // createDateAsUTC(
+                //     new Date(
+                //       new Date(member.activeExpired).getFullYear(),
+                //       new Date(member.activeExpired).getMonth(),
+                //       new Date(member.activeExpired).getDate() +
+                //         ((paketMember &&
+                //           paketMember.tblPackageMembership.times) ||
+                //           0) +
+                //         ((paketLeave && paketLeave.tblPackageMembership.times) ||
+                //           0)
+                //     )
+                //   )
+                moment()
+                  .add(
+                    (paketMember && paketMember.tblPackageMembership.times) ||
+                      0,
+                    "days"
+                  )
+                  .add(
+                    (paketLeave && paketLeave.tblPackageMembership.times) || 0,
+                    "days"
+                  )
+                  .format("YYYY-MM-DD"),
+          // paketMember &&
+          //   createDateAsUTC(
+          //     new Date(
+          //       new Date().getFullYear(),
+          //       new Date().getMonth(),
+          //       new Date().getDate() +
+          //         ((paketMember &&
+          //           paketMember.tblPackageMembership.times) ||
+          //           0) +
+          //         ((paketLeave && paketLeave.tblPackageMembership.times) ||
+          //           0)
+          //     )
+          //   ),
           ptSession:
             member.ptSession +
             ((paketPT && paketPT.tblPackageMembership.times) || 0),
@@ -440,8 +469,10 @@ class TransactionController {
                 new Date(moment(new Date(member.activeExpired)).add(30, "days"))
               )
             : cekSisaHari(member.activeExpired) > 0
-            ? createDateAsUTC(new Date(member.activeExpired))
-            : createDateAsUTC(new Date());
+            ? moment(member.activeExpired).format("YYYY-MM-DD")
+            : // createDateAsUTC(new Date(member.activeExpired))
+              moment().format("YYYY-MM-DD");
+          // createDateAsUTC(new Date());
           revenueData.price = member.tblUser.agreePromo
             ? paketMember.totalPrice
             : paketMember.tblPackageMembership.price;
@@ -852,37 +883,37 @@ class TransactionController {
             },
           });
 
-          let tempRevenue = await tblTempRevenue.findAll({
-            where: {
-              memberId: transaction.memberId,
-            },
-          });
+          // let tempRevenue = await tblTempRevenue.findAll({
+          //   where: {
+          //     memberId: transaction.memberId,
+          //   },
+          // });
 
-          let promises = [];
-          tempRevenue.forEach((x) => {
-            let data = {
-              ...x.dataValues,
-            };
-            delete data.id;
-            delete data.revenueId;
+          // let promises = [];
+          // tempRevenue.forEach((x) => {
+          //   let data = {
+          //     ...x.dataValues,
+          //   };
+          //   delete data.id;
+          //   delete data.revenueId;
 
-            promises.push(
-              tblRevenue.update(data, {
-                where: {
-                  id: x.revenueId,
-                },
-              })
-            );
-          });
+          //   promises.push(
+          //     tblRevenue.update(data, {
+          //       where: {
+          //         id: x.revenueId,
+          //       },
+          //     })
+          //   );
+          // });
 
-          promises.push(
-            tblTempRevenue.destroy({
-              where: {
-                memberId: transaction.memberId,
-              },
-            })
-          );
-          await Promise.all(promises);
+          // promises.push(
+          //   tblTempRevenue.destroy({
+          //     where: {
+          //       memberId: transaction.memberId,
+          //     },
+          //   })
+          // );
+          // await Promise.all(promises);
         }
 
         res.status(200).json({ Message: "Success Denied Paid Member !" });

@@ -1,7 +1,10 @@
 const schedule = require("node-schedule");
 const Op = require("sequelize").Op;
 const { createDateAsUTC } = require("./convertDate");
-const { sendEmailRememberMembership } = require("./nodemailer");
+const {
+  sendEmailRememberMembership,
+  sendDuplicateRevenue,
+} = require("./nodemailer");
 const moment = require("moment");
 const {
   tblCheckinCheckouts,
@@ -1355,6 +1358,23 @@ async function handleScorchedPackageClass() {
   }
 }
 //===================== HANGUSKAN PACKAGE CLASS APABILA MEMBER TIDAK PERPANJANG MEMBERSHIPS DAN PACKAGE CLASS EXPIRED (END) ===============
+
+// async function handleCekDuplicateRevenue() {
+//   try {
+//     schedule.scheduleJob('@daily', async function () {
+//       let revenue = await tblRevenue.sequelize.query(
+//         'SELECT memberId, dateActiveMembership, keterangan, createdAt, COUNT(*) AS jumlah FROM `tblRevenues` WHERE memberId>2000 GROUP BY dateActiveMembership, memberId, keterangan, createdAt HAVING COUNT(dateActiveMembership)>1',
+//         {
+//           raw: true,
+//           type: QueryTypes.SELECT,
+//         },
+//       );
+//       if (revenue.length) sendDuplicateRevenue(JSON.stringify(revenue));
+//     });
+//   } catch (error) {
+//     console.log(error);
+//   }
+// }
 
 function handleGetDate(args) {
   const months = [

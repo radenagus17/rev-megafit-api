@@ -9,8 +9,8 @@ module.exports = (sequelize, DataTypes) => {
      */
     static associate(models) {
       // define association here
-      tblPromo.belongsTo(models.tblPackageMemberships, {
-        foreignKey: "product",
+      tblPromo.hasMany(models.tblPromoProduct, {
+        foreignKey: "promoId",
       });
       tblPromo.hasMany(models.tblHistoryPromo, {
         foreignKey: "idVoucher",
@@ -33,7 +33,6 @@ module.exports = (sequelize, DataTypes) => {
       keterangan: DataTypes.STRING,
       canCombine: DataTypes.BOOLEAN,
       isUnlimited: DataTypes.BOOLEAN,
-      product: DataTypes.STRING,
     },
     {
       sequelize,

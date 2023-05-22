@@ -7,6 +7,8 @@ const {
   tblOrderList,
   tblHistoryPromo,
   tblUser,
+  tblPromoProduct,
+  sequelize,
 } = require("../models");
 const moment = require("moment");
 const Op = require("sequelize").Op;
@@ -15,6 +17,7 @@ const { createDateAsUTC } = require("../helpers/convertDate");
 
 class promo {
   static async create(req, res, next) {
+    const t = await sequelize.transaction();
     try {
       if (req.body.code) {
         let checkCode = await tblPromo.findOne({
@@ -31,7 +34,7 @@ class promo {
       let data = {
         name: req.body.name,
         code: req.body.code,
-        poster: req.file.path,
+        poster: req.file ? req.file.path : null,
         periodeStart: req.body.periodeStart,
         periodeEnd: req.body.periodeEnd,
         typeVoucher: req.body.typeVoucher,
@@ -43,17 +46,55 @@ class promo {
         keterangan: req.body.keterangan,
         canCombine: req.body.canCombine,
         isUnlimited: req.body.isUnlimited,
-        product: req.body.product,
       };
 
-      await tblPromo.create(data);
-      res.status(201).json({ message: "Success" });
+      const newPromo = await tblPromo.create(data, { transaction: t });
+
+      if (!req.body.forAll || req.body.forAll === "false") {
+        let newListProduct;
+        if (typeof req.body.product === "object") {
+          newListProduct = req.body.product;
+        } else {
+          newListProduct = JSON.parse(req.body.product);
+        }
+
+        if (newListProduct.length > 3)
+          return res.status(403).json({
+            success: false,
+            message: "You can't add product more than 3",
+          });
+
+        if (Array.isArray(newListProduct)) {
+          newListProduct.forEach(async (element) => {
+            await tblPromoProduct.create(
+              {
+                promoId: newPromo.id,
+                productId: element.id,
+              },
+              { transaction: t }
+            );
+          });
+        }
+      }
+
+      const getOne = await tblPromo.findOne(
+        {
+          include: { model: tblPromoProduct, include: tblPackageMemberships },
+        },
+        { transaction: t }
+      );
+
+      await t.commit();
+
+      res.status(201).json({ message: "Success", getOne });
     } catch (error) {
+      await t.rollback();
       next(error);
     }
   }
 
   static async edit(req, res, next) {
+    const t = await sequelize.transaction();
     try {
       if (req.body.code) {
         const beforeEdit = await tblPromo.findOne({
@@ -85,14 +126,83 @@ class promo {
         keterangan: req.body.keterangan,
         canCombine: req.body.canCombine,
         isUnlimited: req.body.isUnlimited,
-        product: req.body.product,
+        // product: req.body.product,
       };
 
       if (req.file) data.poster = req.file.path;
 
-      await tblPromo.update(data, { where: { id: req.params.id } });
-      res.status(200).json({ message: "Success" });
+      await tblPromo.update(
+        data,
+        { where: { id: req.params.id } },
+        { transaction: t }
+      );
+
+      if (!req.body.forAll || req.body.forAll === "false") {
+        let newListProduct;
+        if (typeof req.body.product === "object") {
+          newListProduct = req.body.product;
+        } else {
+          newListProduct = JSON.parse(req.body.product);
+        }
+        if (Array.isArray(newListProduct)) {
+          if (newListProduct.length > 3)
+            return res.status(403).json({
+              success: false,
+              message: "You can't add product more than 3",
+            });
+          let allVoucherProduk = await tblPromoProduct.findAll(
+            {
+              where: { promoId: req.params.id },
+            },
+            { transaction: t }
+          );
+
+          allVoucherProduk.forEach(async (el) => {
+            let isAvailable = newListProduct.find(
+              (product) => product.id === el.productId
+            );
+
+            if (!isAvailable)
+              await tblPromoProduct.destroy(
+                { where: { id: isAvailable.id } },
+                { transaction: t }
+              );
+          });
+
+          newListProduct.forEach(async (el) => {
+            let isAvailable = allVoucherProduk.find(
+              (product) => product.productId === el.id
+            );
+
+            if (!isAvailable)
+              await tblPromoProduct.create(
+                {
+                  promoId: req.params.id,
+                  productId: el.id,
+                },
+                { transaction: t }
+              );
+          });
+        }
+      } else {
+        await tblPromoProduct.destroy(
+          { where: { promoId: req.params.id } },
+          { transaction: t }
+        );
+      }
+
+      const getOne = await tblPromo.findOne(
+        {
+          include: { model: tblPromoProduct, include: tblPackageMemberships },
+        },
+        { transaction: t }
+      );
+
+      await t.commit();
+
+      res.status(200).json({ message: "Success", getOne });
     } catch (error) {
+      await t.rollback();
       next(error);
     }
   }
@@ -101,6 +211,7 @@ class promo {
     try {
       let data = await tblPromo.findAll({
         order: [["periodeEnd", "ASC"]],
+        include: { model: tblPromoProduct },
       });
       res.status(200).json(data);
     } catch (error) {
@@ -114,6 +225,7 @@ class promo {
         where: {
           id: req.params.id,
         },
+        include: { model: tblPromoProduct },
       });
       res.status(200).json(data);
     } catch (error) {
@@ -127,6 +239,7 @@ class promo {
         where: { id: req.params.id },
       });
       if (!deleted) throw { name: "notFound" };
+      await tblPromoProduct.destroy({ where: { promoId: req.params.id } });
       res.status(200).json({ message: "Success", deleted: req.params.id });
     } catch (error) {
       next(error);
@@ -144,11 +257,11 @@ class promo {
         where: {
           code: req.body.code,
         },
-        include: { model: tblPackageMemberships },
+        include: { model: tblPromoProduct },
       });
 
-      if (!data || req.body.code !== data.code) throw { name: "notFound" };
-      if (cekSisaHari(data.periodeEnd) < 0) throw { name: "notFound" };
+      if (!data) throw { name: "notFound" };
+      if (cekSisaHari(data.periodeEnd) <= 0) throw { name: "notFound" };
 
       const dataUser = await tblMember.findOne({
         where: { userId: req.user.userId },
@@ -164,8 +277,9 @@ class promo {
       });
 
       if (
-        (dataHistoryPromo.length && !dataHistoryPromo[0].tblPromo.canCombine) ||
-        (dataHistoryPromo[0]?.tblPromo.canCombine && !data.canCombine)
+        (cekSisaHari(dataHistoryPromo[0]?.claimDate) === 0 &&
+          !dataHistoryPromo[0]?.tblPromo.canCombine) ||
+        (cekSisaHari(dataHistoryPromo[0]?.claimDate) === 0 && !data.canCombine)
       )
         return res.status(401).json({
           success: false,
@@ -191,10 +305,10 @@ class promo {
           message: "You cannot claim the promo two times in 1 period",
         });
 
-      const revenueData = await tblRevenue.findAll({
-        where: { memberId: dataUser.memberId },
-        order: [["id", "DESC"]],
-      });
+      // const revenueData = await tblRevenue.findAll({
+      //   where: { memberId: dataUser.memberId },
+      //   order: [["id", "DESC"]],
+      // });
 
       if (req.query.transaction) {
         const transaction = await tblTransaction.findAll({
@@ -217,114 +331,51 @@ class promo {
         let cart = lastTransaction.tblOrderLists;
         let totalPotongan = 0;
 
-        //todo: this is for all product
         if (data.forAll) {
-          //? typeVoucher Diskon
-          if (data.typeVoucher === "diskon") {
-            let totalPrice = cart.reduce((a, b) => a.totalPrice + b.totalPrice);
-            const res = percentage(totalPrice, data.nominal) / cart.length;
-            let promise = [];
-            cart.forEach((el) => {
-              promise.push(
-                tblOrderList.update(
-                  {
-                    totalPrice:
-                      cart.length > 1
-                        ? el.totalPrice - res
-                        : el.totalPrice -
-                          percentage(el.totalPrice, data.nominal),
-                  },
-                  { where: { id: el.id } }
-                )
-              );
-            });
-            await Promise.all(promise);
-            const returnTrans = await tblOrderList.findAll({
-              where: { transactionId: lastTransaction.transactionId },
-            });
+          //todo: this is for all product
+          let promise = [];
+          cart.forEach((el) => {
+            promise.push(
+              tblOrderList.update(
+                {
+                  promoId: data.id,
+                },
+                { where: { id: el.id } }
+              )
+            );
 
-            let totalAmount = returnTrans.reduce(
-              (a, b) => a.totalPrice + b.totalPrice
-            );
-            await tblTransaction.update(
-              {
-                amount:
-                  returnTrans.length > 1
-                    ? totalAmount
-                    : lastTransaction.amount -
-                      percentage(lastTransaction.amount, data.nominal),
-              },
-              { where: { transactionId: lastTransaction.transactionId } }
-            );
-            totalPotongan = percentage(lastTransaction.amount, data.nominal);
-          } else {
-            //? typeVoucher Nominal
-            let promise = [];
-            cart.forEach((el) => {
-              promise.push(
-                tblOrderList.update(
-                  {
-                    totalPrice: el.totalPrice - data.nominal,
-                  },
-                  { where: { id: el.id } }
-                )
-              );
-            });
-            await Promise.all(promise);
-            const returnTrans = await tblOrderList.findAll({
-              where: { transactionId: lastTransaction.transactionId },
-            });
-
-            let totalPrice = returnTrans.reduce(
-              (a, b) => a.totalPrice + b.totalPrice
-            );
-            await tblTransaction.update(
-              {
-                amount:
-                  returnTrans.length > 1
-                    ? totalPrice
-                    : lastTransaction.amount - data.nominal,
-              },
-              { where: { transactionId: lastTransaction.transactionId } }
-            );
-            totalPotongan = data.nominal;
-          }
+            totalPotongan +=
+              data.typeVoucher == "diskon"
+                ? percentage(el.totalPrice, data.nominal)
+                : data.nominal;
+          });
+          await Promise.all(promise);
         } else {
-          //todo: this is for one product
-          const pairProduct = cart.find(
-            (el) => el.packageMembershipId === data.product
-          );
-          if (!pairProduct) throw { name: "notFound" };
-          await tblOrderList.update(
-            {
-              totalPrice:
-                pairProduct.totalPrice < 0
-                  ? 0
-                  : data.typeVoucher === "diskon"
-                  ? pairProduct.totalPrice -
-                    percentage(pairProduct.totalPrice, data.nominal)
-                  : pairProduct.totalPrice - data.nominal,
-            },
-            { where: { id: pairProduct.id } }
-          );
-          await tblTransaction.update(
-            {
-              amount:
-                lastTransaction.amount < 0
-                  ? 0
-                  : data.typeVoucher === "diskon"
-                  ? lastTransaction.amount -
-                    percentage(lastTransaction.amount, data.nominal)
-                  : lastTransaction.amount - data.nominal,
-            },
-            {
-              where: { transactionId: lastTransaction.transactionId },
-            }
-          );
-          totalPotongan =
-            data.typeVoucher === "diskon"
-              ? percentage(pairProduct.totalPrice, data.nominal)
-              : data.nominal;
+          //todo: this is for some product
+          const pairProduct = cart.filter((el) => {
+            return data.tblPromoProducts.some((product) => {
+              return el.packageMembershipId == product.productId;
+            });
+          });
+
+          if (!pairProduct.length) throw { name: "notFound" };
+          let updateOrder = [];
+          pairProduct.forEach((el) => {
+            updateOrder.push(
+              tblOrderList.update(
+                {
+                  promoId: data.id,
+                },
+                { where: { id: el.id } }
+              )
+            );
+
+            totalPotongan +=
+              data.typeVoucher == "diskon"
+                ? percentage(el.totalPrice, data.nominal)
+                : data.nominal;
+          });
+          await Promise.all(updateOrder);
         }
         await tblHistoryPromo.create({
           memberId: dataUser.memberId,
@@ -334,12 +385,6 @@ class promo {
           discount: totalPotongan,
           transaction: lastTransaction.transactionId,
         });
-        await tblUser.update(
-          {
-            agreePromo: true,
-          },
-          { where: { userId: req.user.userId } }
-        );
 
         if (!data.isUnlimited && data.usageQuota) {
           await tblPromo.update(
@@ -448,10 +493,9 @@ class promo {
 
       const data = await tblHistoryPromo.findByPk(id, {
         include: { model: tblPromo },
-        order: [["createdAt", "DESC"]],
       });
       if (!data) throw { name: "notFound" };
-      if (cekSisaHari(data.tblPromo.periodeEnd) < 0) throw { name: "notFound" };
+      if (cekSisaHari(data.claimDate) < 0) throw { name: "notFound" };
 
       const dataOrder = await tblOrderList.findAll({
         where: { transactionId: data.transaction },
@@ -460,45 +504,18 @@ class promo {
 
       if (!dataOrder.length) throw { name: "notFound" };
 
-      let totalPrice = dataOrder.reduce(
-        (a, b) => a.tblPackageMembership.price + b.tblPackageMembership.price
-      );
-      const result =
-        percentage(totalPrice, data.tblPromo.nominal) / dataOrder.length;
       let promise = [];
       dataOrder.forEach((el) => {
         promise.push(
           tblOrderList.update(
             {
-              totalPrice:
-                dataOrder.length > 1 && data.tblPromo.typeVoucher === "diskon"
-                  ? el.totalPrice + result
-                  : data.tblPromo.typeVoucher === "diskon"
-                  ? el.totalPrice +
-                    percentage(
-                      el.tblPackageMembership.price,
-                      data.tblPromo.nominal
-                    )
-                  : el.totalPrice + data.tblPromo.nominal,
+              promoId: null,
             },
             { where: { id: el.id } }
           )
         );
       });
       await Promise.all(promise);
-      const dataTransaction = await tblTransaction.findByPk(data.transaction, {
-        include: { model: tblOrderList },
-      });
-      let totalAmount = dataTransaction.tblOrderLists.reduce(
-        (a, b) => a.totalPrice + b.totalPrice
-      );
-
-      await tblTransaction.update(
-        {
-          amount: totalAmount.totalPrice,
-        },
-        { where: { transactionId: dataTransaction.transactionId } }
-      );
 
       if (data.tblPromo.usageQuota >= 0 && !data.tblPromo.isUnlimited) {
         await tblPromo.update(

@@ -24,7 +24,9 @@ module.exports = (sequelize, DataTypes) => {
       tblPackageMemberships.hasMany(models.tblOrderList, {
         foreignKey: "packageMembershipId",
       });
-      tblPackageMemberships.hasMany(models.tblPromo, { foreignKey: "product" });
+      tblPackageMemberships.hasMany(models.tblPromoProduct, {
+        foreignKey: "productId",
+      });
     }
   }
   tblPackageMemberships.init(

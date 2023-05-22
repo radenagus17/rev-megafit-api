@@ -192,10 +192,8 @@ class classPtsController {
   }
 
   static async joinClass(req, res, next) {
+    const t = await sequelize.transaction();
     try {
-      // add validation for hour + pt
-
-      // clg token === id user
       let member = await tblMember.findOne({
         where: { userId: req.user.userId },
         include: { model: tblStaff },
@@ -228,19 +226,18 @@ class classPtsController {
         //* cek data classPtId yang masuk
         // let classPt = await checkClassPtId(req.params.id, userId);
 
-        let joinPtClass = "";
-        await sequelize.transaction(async (t) => {
-          joinPtClass = await tblHistoryPT.findOrCreate({
-            where: { classPtId: req.params.id, userId: req.user.userId },
-            defaults: {
-              userId: req.user.userId,
-              classPtId: req.params.id,
-              transactionId: null,
-              revenueId: revenue[0].id,
-            },
-            transaction: t,
-          });
+        let joinPtClass = await tblHistoryPT.findOrCreate({
+          where: { classPtId: req.params.id, userId: req.user.userId },
+          defaults: {
+            userId: req.user.userId,
+            classPtId: req.params.id,
+            transactionId: null,
+            revenueId: revenue[0].id,
+          },
+          transaction: t,
         });
+
+        await t.commit();
 
         if (!joinPtClass[1]) throw { name: "notFound" };
         // let newData = {
@@ -337,6 +334,7 @@ class classPtsController {
         res.status(200).json({ message: "Success", data: joinPtClass });
       } else throw { name: "sessionDone" };
     } catch (error) {
+      await t.rollback();
       next(error);
     }
   }

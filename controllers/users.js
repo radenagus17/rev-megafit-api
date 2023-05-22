@@ -55,11 +55,11 @@ class usersController {
           },
         ],
       });
+      if (!userLogin) throw { name: "unauthorized" };
       const cekUsernameSpasi = userLogin.username.split(" ");
       const theRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*[0-9])(?=.{8,}).*$/g;
       const token = sign({ userId: userLogin.userId, email: userLogin.email });
       const result = theRegex.test(password);
-      if (!userLogin) throw { name: "unauthorized" };
       const pass = compare(password, userLogin.password);
       if (!pass) throw { name: "unauthorized" };
       if (cekUsernameSpasi.length > 1 || !result)
@@ -2568,13 +2568,26 @@ class usersController {
           where: { userId: req.params.id },
         });
 
+        const revData = await tblRevenue.findOne({
+          where: {
+            memberId: data.tblMember.memberId,
+            activeMembershipExpired: { [Op.not]: null },
+          },
+          order: [["id", "DESC"]],
+          raw: true,
+          nest: true,
+        });
+
         if (req.body.activeExpired) {
           await tblMember.update(
             {
               activeExpired:
-                req.body.activeExpired === "null" || !req.body.activeExpired
-                  ? null
-                  : createDateAsUTC(new Date(req.body.activeExpired)),
+                revData.packageBefore === "Cuti"
+                  ? createDateAsUTC(new Date(data.tblMember.activeExpired))
+                  : createDateAsUTC(new Date(revData.activeMembershipExpired)),
+              // req.body.activeExpired === "null" || !req.body.activeExpired
+              //   ? null
+              //   : createDateAsUTC(new Date(req.body.activeExpired)),
               activeDate:
                 req.body.activeDate === "null" || !req.body.activeDate
                   ? null

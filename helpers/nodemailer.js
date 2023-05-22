@@ -1,7 +1,7 @@
 const url = require("url");
 const nodemailer = require("nodemailer");
 
-const baseUrlServer = "http://209.97.175.174:3000";
+const baseUrlServer = "http://103.150.191.191";
 const baseUrlClient = "http://megafit.co.id";
 
 let transporter = nodemailer.createTransport({
@@ -48,7 +48,7 @@ async function sendEmailRememberMembership(
     mailOptions.subject = `Hi ${nickname} membership Megafit sisa 7 hari ayo perpanjang`;
   }
   mailOptions.html = `
-    <img src="http://209.97.175.174:3000/asset/img/pola-megafit_black.png" height="30" width="150" alt="logo-megafit" />
+    <img src="${baseUrlServer}/asset/img/pola-megafit_black.png" height="30" width="150" alt="logo-megafit" />
   
     <p style="font-size: 20px;margin-bottom: 5px;"><b>Hai ${nickname}, membership Megafit ${
     keterangan
@@ -57,7 +57,7 @@ async function sendEmailRememberMembership(
   }</b></p>
     <p style="margin:10px 0px;">Perpanjang membership agar tetap bisa terus ke Megafit</p>
   
-    <img src="http://209.97.175.174:3000/asset/img/perpanjang_membership.png" height="150" width="230" alt="logo-forget" />
+    <img src="${baseUrlServer}/asset/img/perpanjang_membership.png" height="150" width="230" alt="logo-forget" />
   
     <p style="margin:10px 0px;">Ayo ke halaman user untuk perpanjang membership <a href="${baseUrlClient}/home">klik sini</a></p>
   
@@ -96,7 +96,7 @@ async function sendErrorReport(req, user, body, error) {
   mailOptions.to = "error@megafit.co.id";
   mailOptions.subject = `Megafit website error report.`;
   mailOptions.html = `
-    <img src="http://209.97.175.174:3000/asset/img/pola-megafit_black.png" height="30" width="150" alt="logo-megafit" />
+    <img src="${baseUrlServer}/asset/img/pola-megafit_black.png" height="30" width="150" alt="logo-megafit" />
   
     <p style="font-size: 20px;margin-bottom: 5px;"><b>This is your megafit error report</b></p>
     <p style="margin:10px 0px 0px 0px;">Routes : ${url.format(urlobj)}</p>
@@ -117,6 +117,28 @@ async function sendErrorReport(req, user, body, error) {
   });
 }
 
+async function sendDuplicateRevenue(body) {
+  mailOptions.to = "error@megafit.co.id";
+  mailOptions.subject = `Megafit website duplicate revenue.`;
+  mailOptions.html = `
+  <img src="${baseUrlServer}/asset/img/pola-megafit_black.png" height="30" width="150" alt="logo-megafit" />
+
+  <p style="margin: 0px;">Duplicate Data : ${body}</p>
+  <p style="margin: 0px;">Error : <b>Duplicate entry on table revenue, solve immediately.</b></p>
+
+  ${footerMail}
+  `;
+
+  await transporter.sendMail(mailOptions, function (error, info) {
+    if (error) {
+      console.log("GAGAL", mailOptions.to);
+      console.log(error);
+    } else {
+      console.log("Berhasil", mailOptions.to);
+    }
+  });
+}
+
 module.exports = {
   mailOptions,
   transporter,
@@ -125,4 +147,5 @@ module.exports = {
   baseUrlServer,
   sendErrorReport,
   sendEmailRememberMembership,
+  sendDuplicateRevenue,
 };
