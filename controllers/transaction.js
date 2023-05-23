@@ -187,6 +187,21 @@ class TransactionController {
             attributes: ["userId"],
             include: { model: tblUser, as: "staff", attributes: ["nickname"] },
           },
+          {
+            model: tblHistoryPromo,
+            as: "historyPromo",
+            attributes: ["discount", "claimDate"],
+            include: {
+              model: tblPromo,
+              as: "promo",
+              attributes: ["id", "name", "code", "periodeEnd"],
+              include: {
+                model: tblPromoProduct,
+                as: "products",
+                attributes: ["productId"],
+              },
+            },
+          },
         ],
         order: [["createdAt", "DESC"]],
       });

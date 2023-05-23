@@ -12,7 +12,9 @@ module.exports = (sequelize, DataTypes) => {
       tblPromoProduct.belongsTo(models.tblPackageMemberships, {
         foreignKey: "productId",
       });
-      tblPromoProduct.belongsTo(models.tblPromo, { foreignKey: "promoId" });
+      tblPromoProduct.belongsTo(models.tblPromo, {
+        foreignKey: "promoId",
+      });
     }
   }
   tblPromoProduct.init(

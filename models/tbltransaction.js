@@ -27,6 +27,7 @@ module.exports = (sequelize, DataTypes) => {
       });
       tblTransaction.hasMany(models.tblHistoryPromo, {
         foreignKey: "transaction",
+        as: "historyPromo",
       });
     }
   }
