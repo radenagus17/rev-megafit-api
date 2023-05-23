@@ -302,8 +302,17 @@ class promo {
       if (findDuplicateData)
         return res.status(403).json({
           success: false,
-          message: "You cannot claim the promo two times in 1 period",
+          message: "You cannot claim this promo two times in 1 period",
         });
+
+      //! different voucher max 2
+      const max2Voucher = dataHistoryPromo.find(
+        (el) => cekSisaHari(el.claimDate) === 0 && dataHistoryPromo.length > 2
+      );
+      if (max2Voucher)
+        return res
+          .status(403)
+          .json({ success: false, message: "maximal 2 promo can combine" });
 
       // const revenueData = await tblRevenue.findAll({
       //   where: { memberId: dataUser.memberId },

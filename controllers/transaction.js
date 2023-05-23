@@ -7,8 +7,9 @@ const {
   tblOrderList,
   tblStaff,
   tblRevenue,
-  tblTempRevenue,
+  tblPromo,
   tblHistoryPromo,
+  tblPromoProduct,
   tblPackageClasses,
 } = require("../models");
 const Op = require("sequelize").Op;
@@ -466,9 +467,7 @@ class TransactionController {
             : // createDateAsUTC(new Date(member.activeExpired))
               moment().format("YYYY-MM-DD");
           // createDateAsUTC(new Date());
-          revenueData.price = member.tblUser.agreePromo
-            ? paketMember.totalPrice
-            : paketMember.tblPackageMembership.price;
+          revenueData.price = paketMember.tblPackageMembership.price;
           revenueData.packageBefore = member.packageMembershipId;
           revenueData.packageAfter =
             paketMember.tblPackageMembership.packageMembershipId;
@@ -491,9 +490,7 @@ class TransactionController {
 
         // UPDATE DATA SETELAH PEMBAYARAN
         if (paketMember || paketPT || paketLeave || paketPG) {
-          revenueData.pricePT = member.tblUser.agreePromo
-            ? paketPT?.totalPrice
-            : paketPT?.tblPackageMembership?.price;
+          revenueData.pricePT = paketPT?.tblPackageMembership?.price;
           revenueData.packagePT =
             paketPT && paketPT.tblPackageMembership.packageMembershipId;
           revenueData.timesPT = paketPT && paketPT.tblPackageMembership.times;
@@ -728,6 +725,10 @@ class TransactionController {
           },
           include: [
             { model: tblOrderList, include: { model: tblPackageMemberships } },
+            {
+              model: tblHistoryPromo,
+              include: { model: tblPromo, include: tblPromoProduct },
+            },
           ],
         });
       } else {
@@ -1449,9 +1450,7 @@ class TransactionController {
             : cekSisaHari(member.activeExpired) > 0
             ? createDateAsUTC(new Date(member.activeExpired))
             : createDateAsUTC(new Date());
-          revenueData.price = member.tblUser.agreePromo
-            ? paketMember.totalPrice
-            : paketMember.tblPackageMembership.price;
+          revenueData.price = paketMember.tblPackageMembership.price;
           revenueData.packageBefore = member.packageMembershipId;
           revenueData.packageAfter =
             paketMember.tblPackageMembership.packageMembershipId;
@@ -1476,9 +1475,7 @@ class TransactionController {
           data.sisaLastPTSession = member.ptSession;
           revenueData.packagePT =
             paketPT.tblPackageMembership.packageMembershipId;
-          revenueData.pricePT = member.tblUser.agreePromo
-            ? paketPT.totalPrice
-            : paketPT.tblPackageMembership.price;
+          revenueData.pricePT = paketPT.tblPackageMembership.price;
           revenueData.timesPT = paketPT.tblPackageMembership.times;
         }
 
@@ -1495,7 +1492,7 @@ class TransactionController {
           revenueData.keterangan = salesInvoice;
           await tblRevenue.create(revenueData);
           await tblUser.update(
-            { flagActive: true, agreePromo: false },
+            { flagActive: true },
             { where: { userId: member.userId } }
           );
         }

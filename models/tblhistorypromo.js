@@ -12,6 +12,9 @@ module.exports = (sequelize, DataTypes) => {
       tblHistoryPromo.belongsTo(models.tblPromo, {
         foreignKey: "idVoucher",
       });
+      tblHistoryPromo.belongsTo(models.tblTransaction, {
+        foreignKey: "transaction",
+      });
     }
   }
   tblHistoryPromo.init(
