@@ -161,14 +161,29 @@ class TransactionController {
           },
           {
             model: tblOrderList,
-            include: {
-              model: tblPackageMemberships,
-              attributes: ["subCategoryMembershipId", "times"],
-              include: {
-                model: tblSubCategoryMembership,
-                attributes: ["adminFee"],
+            include: [
+              {
+                model: tblPackageMemberships,
+                attributes: ["subCategoryMembershipId", "times"],
+                include: {
+                  model: tblSubCategoryMembership,
+                  attributes: ["adminFee"],
+                },
               },
-            },
+              {
+                model: tblPromo,
+                as: "promo",
+                attributes: [
+                  "name",
+                  "code",
+                  "periodeEnd",
+                  "typeVoucher",
+                  "isUnlimited",
+                  "minimumPurchase",
+                  "discountMax",
+                ],
+              },
+            ],
           },
           {
             model: tblStaff,

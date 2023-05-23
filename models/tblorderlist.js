@@ -20,6 +20,7 @@ module.exports = (sequelize, DataTypes) => {
       });
       tblOrderList.belongsTo(models.tblPromo, {
         foreignKey: "promoId",
+        as: "promo",
       });
     }
   }
