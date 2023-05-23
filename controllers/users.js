@@ -323,10 +323,10 @@ class usersController {
         if (error) {
           console.log("GAGAL");
           console.log(error);
-          res.status(400).json({ message: "failed" });
+          return res.status(400).json({ message: "failed" });
         } else {
-          res.status(200).json({ message: "success" });
           console.log("Berhasil");
+          return res.status(200).json({ message: "success" });
         }
       });
     } catch (err) {
@@ -2691,6 +2691,7 @@ function generateOTP() {
 }
 
 function capitalize(name) {
+  if (!name) return false;
   return (name = name
     .toLowerCase()
     .split(" ")

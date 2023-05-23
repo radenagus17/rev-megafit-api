@@ -382,7 +382,10 @@ class promo {
           idVoucher: data.id,
           claimDate: createDateAsUTC(new Date()),
           keterangan: data.keterangan || data.name,
-          discount: totalPotongan,
+          discount:
+            data.discountMax && totalPotongan >= data.discountMax
+              ? data.discountMax
+              : totalPotongan,
           transaction: lastTransaction.transactionId,
         });
 

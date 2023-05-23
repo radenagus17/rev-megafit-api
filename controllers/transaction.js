@@ -228,25 +228,13 @@ class TransactionController {
         where: { userId: req.user.userId },
       });
 
-      //todo: check transaction and user client for payment (onGoingTransaction)
-      let seeTrans = await tblTransaction.findOne({
-        where: {
-          memberId: req.body.memberId,
-        },
-        order: [["createdAt", "DESC"]],
-      });
-      let member = await tblMember.findOne({
-        where: { memberId: req.body.memberId },
-        include: { model: tblUser },
-      });
-
       let transactionData = {
         memberId: req.body.memberId,
         salesId: req.body.salesId,
         cashierId: staff.staffId,
         staffId: req.body.methodPayment === "CASHLEZ" ? staff.staffId : null,
         methodPayment: req.body.methodPayment,
-        amount: member.tblUser.agreePromo ? seeTrans.amount : req.body.amount,
+        amount: req.body.amount,
         admPrice: adminFee ? adminFee.price : null,
         status:
           req.body.methodPayment === "CASHLEZ"
@@ -344,6 +332,11 @@ class TransactionController {
 
         await tblOrderList.bulkCreate(orderData);
       }
+
+      let member = await tblMember.findOne({
+        where: { memberId: req.body.memberId },
+        include: { model: tblUser },
+      });
 
       let cart = await tblOrderList.findAll({
         where: { transactionId },
@@ -549,7 +542,7 @@ class TransactionController {
 
         if (paketMember || paketPT || paketKelas) {
           await tblUser.update(
-            { agreePromo: false, flagActive: true },
+            { flagActive: true },
             { where: { userId: member.userId } }
           );
         }
