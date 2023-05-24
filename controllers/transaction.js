@@ -757,7 +757,12 @@ class TransactionController {
             { model: tblOrderList, include: { model: tblPackageMemberships } },
             {
               model: tblHistoryPromo,
-              include: { model: tblPromo, include: tblPromoProduct },
+              as: "historyPromo",
+              include: {
+                model: tblPromo,
+                as: "promo",
+                include: { model: tblPromoProduct, as: "products" },
+              },
             },
           ],
         });
