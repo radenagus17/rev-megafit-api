@@ -11,6 +11,9 @@ module.exports = (sequelize, DataTypes) => {
       // define association here
       tblPromo.hasMany(models.tblPromoProduct, {
         foreignKey: "promoId",
+      });
+      tblPromo.hasMany(models.tblPromoProduct, {
+        foreignKey: "promoId",
         as: "products",
       });
       tblPromo.hasMany(models.tblHistoryPromo, {
