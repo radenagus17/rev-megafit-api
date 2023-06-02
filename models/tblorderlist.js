@@ -19,8 +19,12 @@ module.exports = (sequelize, DataTypes) => {
         foreignKey: "categoryMembershipId",
       });
       tblOrderList.belongsTo(models.tblPromo, {
-        foreignKey: "promoId",
-        as: "promo",
+        foreignKey: "promo_1",
+        as: "promo1",
+      });
+      tblOrderList.belongsTo(models.tblPromo, {
+        foreignKey: "promo_2",
+        as: "promo2",
       });
     }
   }
@@ -31,7 +35,8 @@ module.exports = (sequelize, DataTypes) => {
       packageMembershipId: DataTypes.STRING,
       quantity: DataTypes.INTEGER,
       totalPrice: DataTypes.INTEGER,
-      promoId: DataTypes.INTEGER,
+      promo_1: DataTypes.INTEGER,
+      promo_2: DataTypes.INTEGER,
       categoryMembershipId: DataTypes.INTEGER,
     },
     {

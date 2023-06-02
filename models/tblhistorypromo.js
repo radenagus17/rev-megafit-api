@@ -11,6 +11,9 @@ module.exports = (sequelize, DataTypes) => {
       // define association here
       tblHistoryPromo.belongsTo(models.tblPromo, {
         foreignKey: "idVoucher",
+      });
+      tblHistoryPromo.belongsTo(models.tblPromo, {
+        foreignKey: "idVoucher",
         as: "promo",
       });
       tblHistoryPromo.belongsTo(models.tblTransaction, {

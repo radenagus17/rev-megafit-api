@@ -305,15 +305,6 @@ class promo {
           message: "You cannot claim this promo two times in 1 period",
         });
 
-      //! different voucher max 2
-      const max2Voucher = dataHistoryPromo.find(
-        (el) => cekSisaHari(el.claimDate) === 0 && dataHistoryPromo.length > 2
-      );
-      if (max2Voucher)
-        return res
-          .status(403)
-          .json({ success: false, message: "maximal 2 promo can combine" });
-
       // const revenueData = await tblRevenue.findAll({
       //   where: { memberId: dataUser.memberId },
       //   order: [["id", "DESC"]],
@@ -328,84 +319,100 @@ class promo {
         if (!transaction.length) throw { name: "notFound" };
         let lastTransaction = transaction[0];
 
-        if (
-          data.minimumPurchase &&
-          lastTransaction.amount < data.minimumPurchase
-        )
+        //! different voucher max 2 (START)
+        const max2Voucher = dataHistoryPromo.filter(
+          (el) =>
+            cekSisaHari(el.claimDate) === 0 &&
+            el.transaction === lastTransaction.transactionId
+        );
+        if (max2Voucher.length >= 2)
+          return res
+            .status(403)
+            .json({ success: false, message: "maximal 2 promo can combine" });
+        //! different voucher max 2 (END)
+
+        let cart = lastTransaction.tblOrderLists;
+        const totalPrice =
+          cart.length > 1
+            ? cart.reduce((a, b) => a.totalPrice + b.totalPrice)
+            : cart[0].totalPrice;
+
+        if (data.minimumPurchase && totalPrice < data.minimumPurchase)
           return res.status(409).json({
             success: false,
             message: "Transaction Order is less than minimum promo !",
           });
 
-        let cart = lastTransaction.tblOrderLists;
         let totalPotongan = 0;
 
-        if (data.forAll) {
-          //todo: this is for all product
-          let promise = [];
-          cart.forEach((el) => {
-            promise.push(
-              tblOrderList.update(
-                {
-                  promoId: data.id,
-                },
-                { where: { id: el.id } }
-              )
-            );
+        // if (data.forAll) {
+        //   //todo: this is for all product
+        //   let promise = [];
+        //   cart.forEach((el) => {
+        //     promise.push(
+        //       tblOrderList.update(
+        //         {
+        //           promo_1: el.promo_1 ?? data.id,
+        //           promo_2: el.promo_1 ? data.id : null,
+        //         },
+        //         { where: { id: el.id } }
+        //       )
+        //     );
 
-            totalPotongan +=
-              data.typeVoucher == "diskon"
-                ? percentage(el.totalPrice, data.nominal)
-                : data.nominal;
-          });
-          await Promise.all(promise);
-        } else {
-          //todo: this is for some product
-          const pairProduct = cart.filter((el) => {
-            return data.tblPromoProducts.some((product) => {
-              return el.packageMembershipId == product.productId;
-            });
-          });
+        //     totalPotongan +=
+        //       data.typeVoucher == "diskon"
+        //         ? percentage(el.totalPrice, data.nominal)
+        //         : data.nominal;
+        //   });
+        //   await Promise.all(promise);
+        // } else {
+        //   //todo: this is for some product
+        //   const pairProduct = cart.filter((el) => {
+        //     return data.tblPromoProducts.some((product) => {
+        //       return el.packageMembershipId == product.productId;
+        //     });
+        //   });
 
-          if (!pairProduct.length) throw { name: "notFound" };
-          let updateOrder = [];
-          pairProduct.forEach((el) => {
-            updateOrder.push(
-              tblOrderList.update(
-                {
-                  promoId: data.id,
-                },
-                { where: { id: el.id } }
-              )
-            );
+        //   if (!pairProduct.length) throw { name: "notFound" };
+        //   let updateOrder = [];
+        //   pairProduct.forEach((el) => {
+        //     updateOrder.push(
+        //       tblOrderList.update(
+        //         {
+        //           promo_1: el.promo_1 ?? data.id,
+        //           promo_2: el.promo_1 ? data.id : null,
+        //         },
+        //         { where: { id: el.id } }
+        //       )
+        //     );
 
-            totalPotongan +=
-              data.typeVoucher == "diskon"
-                ? percentage(el.totalPrice, data.nominal)
-                : data.nominal;
-          });
-          await Promise.all(updateOrder);
-        }
-        await tblHistoryPromo.create({
-          memberId: dataUser.memberId,
-          idVoucher: data.id,
-          claimDate: createDateAsUTC(new Date()),
-          keterangan: data.keterangan || data.name,
-          discount:
-            data.discountMax && totalPotongan >= data.discountMax
-              ? data.discountMax
-              : totalPotongan,
-          transaction: lastTransaction.transactionId,
-        });
+        //     totalPotongan +=
+        //       data.typeVoucher == "diskon"
+        //         ? percentage(el.totalPrice, data.nominal)
+        //         : data.nominal;
+        //   });
+        //   await Promise.all(updateOrder);
+        // }
+        // await tblHistoryPromo.create({
+        //   memberId: dataUser.memberId,
+        //   idVoucher: data.id,
+        //   claimDate: createDateAsUTC(new Date()),
+        //   keterangan: data.keterangan || data.name,
+        //   discount:
+        //     data.discountMax && totalPotongan >= data.discountMax
+        //       ? data.discountMax
+        //       : totalPotongan,
+        //   transaction: lastTransaction.transactionId,
+        // });
 
-        if (!data.isUnlimited && data.usageQuota) {
-          await tblPromo.update(
-            {
-              usageQuota: data.usageQuota - 1,
-            },
-            { where: { id: data.id } }
-          );
-        }
+        // if (!data.isUnlimited && data.usageQuota) {
+        //   await tblPromo.update(
+        //     {
+        //       usageQuota: data.usageQuota - 1,
+        //     },
+        //     { where: { id: data.id } }
+        //   );
+        // }
 
         res.status(200).json({
           Message: "Success Add Promo !",
@@ -521,7 +528,8 @@ class promo {
         promise.push(
           tblOrderList.update(
             {
-              promoId: null,
+              promo_1: el.promo_1 === data.idVoucher ? null : el.promo_1,
+              promo_2: el.promo_2 === data.idVoucher ? null : el.promo_2,
             },
             { where: { id: el.id } }
           )
@@ -554,19 +562,20 @@ class promo {
       const dataUser = await tblUser.findByPk(req.user.userId, {
         include: { model: tblMember },
       });
-      const dataHistory = await tblHistoryPromo.findAll({
-        where: { memberId: dataUser.tblMember.memberId },
-        include: { model: tblPromo },
-      });
+      // const dataHistory = await tblHistoryPromo.findAll({
+      //   where: { memberId: dataUser.tblMember.memberId },
+      //   include: { model: tblPromo },
+      // });
       // console.log(dataHistory);
-      // let history = await tblHistoryPromo.sequelize.query(
-      //   "SELECT tblMembers.memberId,tblUsers.fullname,tblClassPts.time,tblClassPts.date,tblClassPts.week,tblClassPts.month,tblClassPts.year,tblRevenues.packagePT,tblRevenues.pricePT,tblRevenues.timesPT FROM `tblHistoryPTs` INNER JOIN `tblMembers` ON tblHistoryPTs.userId = tblMembers.userId LEFT OUTER JOIN tblRevenues ON tblHistoryPTs.revenueId = tblRevenues.id LEFT OUTER JOIN tblClassPts ON tblHistoryPTs.classPtId = tblClassPts.classPtId LEFT OUTER JOIN tblUsers on tblClassPts.ptId = tblUsers.userId",
-      //   {
-      //     raw: true,
-      //     type: QueryTypes.SELECT,
-      //   }
-      // );
-      res.status(200).json({ success: true, histories: dataHistory });
+      let history = await tblHistoryPromo.sequelize.query(
+        "SELECT tblHistoryPromos.id AS historyId, DATE_FORMAT(tblHistoryPromos.claimDate, '%Y-%m-%d') AS claimDate, tblMembers.memberId,tblUsers.fullname,tblPromos.id AS 'promoId',tblPromos.code, tblHistoryPromos.transaction, tblHistoryPromos.discount FROM tblHistoryPromos INNER JOIN tblMembers ON tblMembers.memberId = tblHistoryPromos.memberId INNER JOIN tblUsers ON tblUsers.userId = tblMembers.userId INNER JOIN tblPromos ON tblPromos.id = tblHistoryPromos.idVoucher WHERE tblHistoryPromos.memberId = $1 AND tblHistoryPromos.transaction = $2",
+        {
+          bind: [dataUser.tblMember.memberId, +req.query.idTransaction],
+          raw: true,
+          type: QueryTypes.SELECT,
+        }
+      );
+      res.status(200).json({ success: true, histories: history });
     } catch (error) {
       next(error);
     }

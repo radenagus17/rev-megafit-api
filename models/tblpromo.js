@@ -20,7 +20,10 @@ module.exports = (sequelize, DataTypes) => {
         foreignKey: "idVoucher",
       });
       tblPromo.hasMany(models.tblOrderList, {
-        foreignKey: "promoId",
+        foreignKey: "promo_1",
+      });
+      tblPromo.hasMany(models.tblOrderList, {
+        foreignKey: "promo_2",
       });
     }
   }
