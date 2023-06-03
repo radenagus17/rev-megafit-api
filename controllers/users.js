@@ -1188,7 +1188,7 @@ class usersController {
           } else {
             res.status(200).json({ message: "Success", data: detailUser });
           }
-        }
+        } else throw { name: "notFound" };
       }
     } catch (error) {
       next(error);

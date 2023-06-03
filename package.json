@@ -36,6 +36,8 @@
     "nodemon": "^2.0.20",
     "qrcode": "^1.5.1",
     "sequelize": "^6.23.0",
+    "swagger-jsdoc": "^6.2.8",
+    "swagger-ui-express": "^4.6.3",
     "xendit-node": "^1.21.10"
   },
   "devDependencies": {
