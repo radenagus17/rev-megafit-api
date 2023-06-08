@@ -1362,298 +1362,290 @@ class TransactionController {
 
   static async callbackXenditInvoice(req, res, next) {
     try {
-      const callbackToken =
-        "c264d6379d6d495435f9443e45dd6384b3e6efdb397bff855b4b3a63d3e1e5f6";
-      const incomingCallback = req.headers["x-callback-token"]
-        ? req.headers["x-callback-token"]
-        : null;
+      const incomingCallback = req.headers["x-callback-token"] ?? null;
+      if (incomingCallback !== process.env.CALLBACK_TOKEN)
+        return res.status(403).end();
 
-      if (incomingCallback === callbackToken) {
-        let transaction = await tblTransaction.findOne({
-          where: {
-            [Op.and]: [
-              { transactionId: +req.body.external_id || -1 },
-              { xendit_url: { [Op.not]: null } },
-            ],
-          },
-          attributes: [
-            "transactionId",
-            "memberId",
-            "amount",
-            "createdAt",
-            "expiredAt",
-            "methodPayment",
+      let transaction = await tblTransaction.findOne({
+        where: {
+          [Op.and]: [
+            { transactionId: +req.body.external_id || -1 },
+            { xendit_url: { [Op.not]: null } },
           ],
-          include: {
-            model: tblOrderList,
-            include: { model: tblPackageMemberships },
-          },
-        });
-        if (transaction.methodPayment == "EDC" && transaction.expiredAt == null)
-          throw { name: "ok" };
-        if (!transaction || !transaction.expiredAt || !req.body.payment_channel)
-          throw { name: "notFound" };
-        if (req.body.status == "EXPIRED" && transaction.methodPayment == "EDC")
-          throw { name: "ok" };
-        // new Date(Date.now()) >= new Date(transaction.expiredAt)
-        let cart = transaction.tblOrderLists;
-        let member = await tblMember.findOne({
-          where: { memberId: transaction.memberId },
-          include: { model: tblUser },
-        });
+        },
+        attributes: [
+          "transactionId",
+          "memberId",
+          "amount",
+          "createdAt",
+          "expiredAt",
+          "methodPayment",
+        ],
+        include: {
+          model: tblOrderList,
+          include: { model: tblPackageMemberships },
+        },
+      });
+      if (transaction.methodPayment == "EDC" && transaction.expiredAt == null)
+        throw { name: "ok" };
+      if (!transaction || !transaction.expiredAt || !req.body.payment_channel)
+        throw { name: "notFound" };
+      if (req.body.status == "EXPIRED" && transaction.methodPayment == "EDC")
+        throw { name: "ok" };
+      // new Date(Date.now()) >= new Date(transaction.expiredAt)
+      let cart = transaction.tblOrderLists;
+      let member = await tblMember.findOne({
+        where: { memberId: transaction.memberId },
+        include: { model: tblUser },
+      });
 
-        let paketMember = cart.find(
-          (el) =>
-            el.categoryMembershipId === 1 ||
-            (el.categoryMembershipId === 8) | (el.categoryMembershipId === 9)
-        );
-        let paketLeave = cart.find((el) => el.categoryMembershipId === 4);
-        let paketPT = cart.find((el) => el.categoryMembershipId === 2);
-        let paketOnline = cart.find((el) => el.categoryMembershipId === 5);
-        let paketPG = cart.find(
-          (el) =>
-            el.packageMembershipId === "NVIP" ||
-            el.packageMembershipId === "VIP"
-        );
-        let paketKelas = cart.find((el) => el.categoryMembershipId === 6);
+      let paketMember = cart.find(
+        (el) =>
+          el.categoryMembershipId === 1 ||
+          (el.categoryMembershipId === 8) | (el.categoryMembershipId === 9)
+      );
+      let paketLeave = cart.find((el) => el.categoryMembershipId === 4);
+      let paketPT = cart.find((el) => el.categoryMembershipId === 2);
+      let paketOnline = cart.find((el) => el.categoryMembershipId === 5);
+      let paketPG = cart.find(
+        (el) =>
+          el.packageMembershipId === "NVIP" || el.packageMembershipId === "VIP"
+      );
+      let paketKelas = cart.find((el) => el.categoryMembershipId === 6);
 
-        // CEK LAST INVOICE NUMBER
-        let dataTransaction = await tblTransaction.findOne({
-          where: { salesInvoice: { [Op.not]: null } },
-          order: [["salesInvoice", "DESC"]],
-        });
+      // CEK LAST INVOICE NUMBER
+      let dataTransaction = await tblTransaction.findOne({
+        where: { salesInvoice: { [Op.not]: null } },
+        order: [["salesInvoice", "DESC"]],
+      });
 
-        // SETTING UNIQUE CODE INVOICE
-        let uniqueMonth =
-          new Date().getMonth() + 1 < 10
-            ? `0${new Date().getMonth() + 1}`
-            : new Date().getMonth() + 1;
-        let code =
-          dataTransaction && dataTransaction.salesInvoice
-            ? +dataTransaction.salesInvoice.slice(9) + 1
-            : 11;
-        if (code < 100) code = `00${code}`;
-        else if (code < 1000) code = `0${code}`;
+      // SETTING UNIQUE CODE INVOICE
+      let uniqueMonth =
+        new Date().getMonth() + 1 < 10
+          ? `0${new Date().getMonth() + 1}`
+          : new Date().getMonth() + 1;
+      let code =
+        dataTransaction && dataTransaction.salesInvoice
+          ? +dataTransaction.salesInvoice.slice(9) + 1
+          : 11;
+      if (code < 100) code = `00${code}`;
+      else if (code < 1000) code = `0${code}`;
 
-        // FIX UNIQUE CODE
-        let salesInvoice = `MPSI-${String(new Date().getFullYear()).slice(
-          2
-        )}${uniqueMonth}${code}`;
+      // FIX UNIQUE CODE
+      let salesInvoice = `MPSI-${String(new Date().getFullYear()).slice(
+        2
+      )}${uniqueMonth}${code}`;
 
-        let data = {
-          activeExpired:
-            cekSisaHari(member.activeExpired) > 0 &&
-            member.packageMembershipId !== "Trial"
-              ? createDateAsUTC(
-                  new Date(
-                    new Date(member.activeExpired).getFullYear(),
-                    new Date(member.activeExpired).getMonth(),
-                    new Date(member.activeExpired).getDate() +
-                      ((paketMember &&
-                        paketMember.tblPackageMembership.times) ||
-                        0) +
-                      ((paketLeave && paketLeave.tblPackageMembership.times) ||
-                        0)
-                  )
-                )
-              : paketMember &&
-                createDateAsUTC(
-                  new Date(
-                    new Date().getFullYear(),
-                    new Date().getMonth(),
-                    new Date().getDate() +
-                      ((paketMember &&
-                        paketMember.tblPackageMembership.times) ||
-                        0) +
-                      ((paketLeave && paketLeave.tblPackageMembership.times) ||
-                        0)
-                  )
-                ),
-          ptSession:
-            member.ptSession +
-            ((paketPT && paketPT.tblPackageMembership.times) || 0),
-          ptSessionOnline:
-            member.ptSessionOnline +
-            ((paketOnline && paketOnline.tblPackageMembership.times) || 0),
-        };
-
-        let revenueData = {
-          memberId: transaction.memberId,
-        };
-
-        if (paketMember) {
-          if (member.packageMembershipId === "Trial") data.activeDate = null;
-          if (cekSisaHari(member.activeExpired) <= 0) {
-            data.packageMembershipId =
-              member.packageMembershipId !== "1DP" &&
-              paketMember.packageMembershipId === "1DP" &&
-              member.packageMembershipId
-                ? member.packageMembershipId
-                : paketMember.packageMembershipId;
-          }
-          revenueData.dateActiveMembership = paketLeave
+      let data = {
+        activeExpired:
+          cekSisaHari(member.activeExpired) > 0 &&
+          member.packageMembershipId !== "Trial"
             ? createDateAsUTC(
-                new Date(moment(new Date(member.activeExpired)).add(30, "days"))
+                new Date(
+                  new Date(member.activeExpired).getFullYear(),
+                  new Date(member.activeExpired).getMonth(),
+                  new Date(member.activeExpired).getDate() +
+                    ((paketMember && paketMember.tblPackageMembership.times) ||
+                      0) +
+                    ((paketLeave && paketLeave.tblPackageMembership.times) || 0)
+                )
               )
-            : cekSisaHari(member.activeExpired) > 0
-            ? createDateAsUTC(new Date(member.activeExpired))
-            : createDateAsUTC(new Date());
-          revenueData.price = paketMember.tblPackageMembership.price;
-          revenueData.packageBefore = member.packageMembershipId;
-          revenueData.packageAfter =
-            paketMember.tblPackageMembership.packageMembershipId;
-          revenueData.times = paketMember.tblPackageMembership.times;
-          revenueData.debit = paketMember.tblPackageMembership.times;
-          revenueData.activeMembershipExpired = data.activeExpired;
-          revenueData.saldo_member = member.isLeave
-            ? cekSisaHari(data.activeExpired) -
-              (30 - cekSisaCuti(new Date(), new Date(member.leaveDate)))
-            : cekSisaHari(data.activeExpired);
-          revenueData.status =
-            cekSisaHari(member.activeExpired) > 0 ||
-            !member.activeDate ||
-            member.packageMembershipId === "Trial"
-              ? "PENDING"
-              : "OPEN";
-          revenueData.is_event = false;
+            : paketMember &&
+              createDateAsUTC(
+                new Date(
+                  new Date().getFullYear(),
+                  new Date().getMonth(),
+                  new Date().getDate() +
+                    ((paketMember && paketMember.tblPackageMembership.times) ||
+                      0) +
+                    ((paketLeave && paketLeave.tblPackageMembership.times) || 0)
+                )
+              ),
+        ptSession:
+          member.ptSession +
+          ((paketPT && paketPT.tblPackageMembership.times) || 0),
+        ptSessionOnline:
+          member.ptSessionOnline +
+          ((paketOnline && paketOnline.tblPackageMembership.times) || 0),
+      };
+
+      let revenueData = {
+        memberId: transaction.memberId,
+      };
+
+      if (paketMember) {
+        if (member.packageMembershipId === "Trial") data.activeDate = null;
+        if (cekSisaHari(member.activeExpired) <= 0) {
+          data.packageMembershipId =
+            member.packageMembershipId !== "1DP" &&
+            paketMember.packageMembershipId === "1DP" &&
+            member.packageMembershipId
+              ? member.packageMembershipId
+              : paketMember.packageMembershipId;
         }
+        revenueData.dateActiveMembership = paketLeave
+          ? createDateAsUTC(
+              new Date(moment(new Date(member.activeExpired)).add(30, "days"))
+            )
+          : cekSisaHari(member.activeExpired) > 0
+          ? createDateAsUTC(new Date(member.activeExpired))
+          : createDateAsUTC(new Date());
+        revenueData.price = paketMember.tblPackageMembership.price;
+        revenueData.packageBefore = member.packageMembershipId;
+        revenueData.packageAfter =
+          paketMember.tblPackageMembership.packageMembershipId;
+        revenueData.times = paketMember.tblPackageMembership.times;
+        revenueData.debit = paketMember.tblPackageMembership.times;
+        revenueData.activeMembershipExpired = data.activeExpired;
+        revenueData.saldo_member = member.isLeave
+          ? cekSisaHari(data.activeExpired) -
+            (30 - cekSisaCuti(new Date(), new Date(member.leaveDate)))
+          : cekSisaHari(data.activeExpired);
+        revenueData.status =
+          cekSisaHari(member.activeExpired) > 0 ||
+          !member.activeDate ||
+          member.packageMembershipId === "Trial"
+            ? "PENDING"
+            : "OPEN";
+        revenueData.is_event = false;
+      }
 
-        if (paketPT) {
-          data.packagePTId = paketPT.tblPackageMembership.packageMembershipId;
-          data.sisaLastPTSession = member.ptSession;
-          revenueData.packagePT =
-            paketPT.tblPackageMembership.packageMembershipId;
-          revenueData.pricePT = paketPT.tblPackageMembership.price;
-          revenueData.timesPT = paketPT.tblPackageMembership.times;
-        }
+      if (paketPT) {
+        data.packagePTId = paketPT.tblPackageMembership.packageMembershipId;
+        data.sisaLastPTSession = member.ptSession;
+        revenueData.packagePT =
+          paketPT.tblPackageMembership.packageMembershipId;
+        revenueData.pricePT = paketPT.tblPackageMembership.price;
+        revenueData.timesPT = paketPT.tblPackageMembership.times;
+      }
 
-        if (paketPG) {
-          data.PG_Session = !member.PG_Session ? 1 : member.PG_Session + 1;
-        }
+      if (paketPG) {
+        data.PG_Session = !member.PG_Session ? 1 : member.PG_Session + 1;
+      }
 
-        if (paketLeave) {
-          data.leaveStatus = "PAID";
-        }
+      if (paketLeave) {
+        data.leaveStatus = "PAID";
+      }
 
-        // CREATE REVENUE DATA
-        if (paketMember || paketPT) {
-          revenueData.keterangan = salesInvoice;
-          await tblRevenue.create(revenueData);
-          await tblUser.update(
-            { flagActive: true },
-            { where: { userId: member.userId } }
-          );
-        }
-        // UPDATE DATA SETELAH PEMBAYARAN
-        await tblMember.update(data, {
-          where: { memberId: transaction.memberId },
-        });
-
-        // for classPackage checkout
-        if (paketKelas) {
-          let classPackage = await tblPackageClasses.create({
-            expiredDate: createDateAsUTC(
-              new Date(
-                new Date().getFullYear(),
-                new Date().getMonth(),
-                new Date().getDate() +
-                  (paketKelas.tblPackageMembership.times || 0)
-              )
-            ),
-            memberId: member.memberId,
-            subCategoryMembershipId:
-              paketKelas.tblPackageMembership.subCategoryMembershipId,
-            classSession: paketKelas.tblPackageMembership.classUsed,
-            activeDate: createDateAsUTC(new Date()),
-          });
-          await tblRevenue.create({
-            memberId: member.memberId,
-            keterangan: salesInvoice,
-            dateActiveMembership: createDateAsUTC(new Date()),
-            activeMembershipExpired: classPackage.expiredDate,
-            status: "OPEN",
-            packageBefore: paketKelas.tblPackageMembership.package,
-            times: paketKelas.tblPackageMembership.classUsed,
-            kredit: 0,
-            price: paketKelas.tblPackageMembership.price,
-          });
-        }
-
-        let transactionUpdate = {
-          salesInvoice: salesInvoice,
-          status: "paid",
-          keterangan: paketMember
-            ? paketMember.tblPackageMembership.packageMembershipId
-            : paketPT
-            ? paketPT.tblPackageMembership.packageMembershipId
-            : paketLeave
-            ? paketLeave.tblPackageMembership.packageMembershipId
-            : paketMember && paketPT
-            ? `${paketMember.tblPackageMembership.packageMembershipId} + ${paketPT.tblPackageMembership.packageMembershipId}`
-            : null,
-          paymentDate: createDateAsUTC(new Date()),
-          staffId: 1,
-          deniedReason: null,
-        };
-
-        await tblTransaction.update(transactionUpdate, {
-          where: { transactionId: transaction.transactionId },
-        });
-
-        await tblOrderList.update(
-          { salesInvoice },
-          { where: { transactionId: transaction.transactionId } }
+      // CREATE REVENUE DATA
+      if (paketMember || paketPT) {
+        revenueData.keterangan = salesInvoice;
+        await tblRevenue.create(revenueData);
+        await tblUser.update(
+          { flagActive: true },
+          { where: { userId: member.userId } }
         );
+      }
+      // UPDATE DATA SETELAH PEMBAYARAN
+      await tblMember.update(data, {
+        where: { memberId: transaction.memberId },
+      });
 
-        // let orderList = await tblOrderList.findAll({
-        //   where: {
-        //     transactionId: transaction.transactionId,
-        //     categoryMembershipId: 6,
-        //   },
-        //   include: [{ model: tblPackageMemberships }],
-        // });
+      // for classPackage checkout
+      if (paketKelas) {
+        let classPackage = await tblPackageClasses.create({
+          expiredDate: createDateAsUTC(
+            new Date(
+              new Date().getFullYear(),
+              new Date().getMonth(),
+              new Date().getDate() +
+                (paketKelas.tblPackageMembership.times || 0)
+            )
+          ),
+          memberId: member.memberId,
+          subCategoryMembershipId:
+            paketKelas.tblPackageMembership.subCategoryMembershipId,
+          classSession: paketKelas.tblPackageMembership.classUsed,
+          activeDate: createDateAsUTC(new Date()),
+        });
+        await tblRevenue.create({
+          memberId: member.memberId,
+          keterangan: salesInvoice,
+          dateActiveMembership: createDateAsUTC(new Date()),
+          activeMembershipExpired: classPackage.expiredDate,
+          status: "OPEN",
+          packageBefore: paketKelas.tblPackageMembership.package,
+          times: paketKelas.tblPackageMembership.classUsed,
+          kredit: 0,
+          price: paketKelas.tblPackageMembership.price,
+        });
+      }
 
-        // orderList.length > 0 &&
-        //   (await orderList.forEach(async (order) => {
-        //     let before = await tblMemberClasses.findOne({
-        //       where: {
-        //         memberId: transaction.memberId,
-        //         subCategoryMembershipId: order.tblPackageMembership.subCategoryMembershipId,
-        //       },
-        //     });
+      let transactionUpdate = {
+        salesInvoice: salesInvoice,
+        status: "paid",
+        keterangan: paketMember
+          ? paketMember.tblPackageMembership.packageMembershipId
+          : paketPT
+          ? paketPT.tblPackageMembership.packageMembershipId
+          : paketLeave
+          ? paketLeave.tblPackageMembership.packageMembershipId
+          : paketMember && paketPT
+          ? `${paketMember.tblPackageMembership.packageMembershipId} + ${paketPT.tblPackageMembership.packageMembershipId}`
+          : null,
+        paymentDate: createDateAsUTC(new Date()),
+        staffId: 1,
+        deniedReason: null,
+      };
 
-        //     let newData = {
-        //       memberId: transaction.memberId,
-        //       subCategoryMembershipId: order.tblPackageMembership.subCategoryMembershipId,
-        //       times: before ? before.times + order.tblPackageMembership.times : order.tblPackageMembership.times,
-        //       // expired
-        //     };
+      await tblTransaction.update(transactionUpdate, {
+        where: { transactionId: transaction.transactionId },
+      });
 
-        //     if (before) {
-        //       await tblMemberClasses.update(newData, {
-        //         where: { id: before.id },
-        //       });
-        //     } else await tblMemberClasses.create(newData);
-        //   }));
+      await tblOrderList.update(
+        { salesInvoice },
+        { where: { transactionId: transaction.transactionId } }
+      );
 
-        res.status(200).json({ Message: "Success Paid Member !" });
+      // let orderList = await tblOrderList.findAll({
+      //   where: {
+      //     transactionId: transaction.transactionId,
+      //     categoryMembershipId: 6,
+      //   },
+      //   include: [{ model: tblPackageMemberships }],
+      // });
 
-        let user = await tblUser.findByPk(member.userId);
-        let order = "";
+      // orderList.length > 0 &&
+      //   (await orderList.forEach(async (order) => {
+      //     let before = await tblMemberClasses.findOne({
+      //       where: {
+      //         memberId: transaction.memberId,
+      //         subCategoryMembershipId: order.tblPackageMembership.subCategoryMembershipId,
+      //       },
+      //     });
 
-        await transaction.tblOrderLists.forEach((element) => {
-          order =
-            order +
-            `<div style="display:flex;margin-left:30px;">
+      //     let newData = {
+      //       memberId: transaction.memberId,
+      //       subCategoryMembershipId: order.tblPackageMembership.subCategoryMembershipId,
+      //       times: before ? before.times + order.tblPackageMembership.times : order.tblPackageMembership.times,
+      //       // expired
+      //     };
+
+      //     if (before) {
+      //       await tblMemberClasses.update(newData, {
+      //         where: { id: before.id },
+      //       });
+      //     } else await tblMemberClasses.create(newData);
+      //   }));
+
+      res.status(200).json({ Message: "Success Paid Member !" });
+
+      let user = await tblUser.findByPk(member.userId);
+      let order = "";
+
+      await transaction.tblOrderLists.forEach((element) => {
+        order =
+          order +
+          `<div style="display:flex;margin-left:30px;">
             <div style="width:350px;">
               <p style="margin:5px;margin-left: 0px;">${
                 element.tblPackageMembership.package
               } ${element.tblPackageMembership.times} ${
-              element.categoryMembershipId !== 2 ||
-              element.categoryMembershipId !== 2
-                ? "Hari"
-                : "Sesi"
-            }</p>
+            element.categoryMembershipId !== 2 ||
+            element.categoryMembershipId !== 2
+              ? "Hari"
+              : "Sesi"
+          }</p>
             </div>
             <div>
               <p style="margin:5px;margin-left: 0px;">Rp ${convertRupiah(
@@ -1661,27 +1653,27 @@ class TransactionController {
               )}</p>
             </div>
           </div>`;
-        });
+      });
 
-        mailOptions.to = user.email;
-        mailOptions.subject = "Terima kasih atas transaksi di Megafit";
-        mailOptions.html = `
+      mailOptions.to = user.email;
+      mailOptions.subject = "Terima kasih atas transaksi di Megafit";
+      mailOptions.html = `
         <img src="http://209.97.175.174:3000/asset/img/pola-megafit_black.png" height="30" width="150" alt="logo-megafit" />
         <p style="font-size: 20px;margin-bottom: 5px;"><b>Terima kasih telah belanja di Megafit</b></p>
         <p style="margin:0px 0px 10px 0px;color:#91c640">Lebih sedikit kertas, lebih hijau! Pilihan Megarangers membuat dunia lebih baik.</p>
-  
+
         <p style="margin:15px 0px;"><b>Berikut merupakan detil pembelian di Megafit pada tanggal ${getDate(
           new Date(transaction.createdAt)
         )}</b></p>
-  
+
         <div id="table-order" style="margin-bottom: 20px;">
           <div style="background-color:#dcdcdc;padding:10px 30px;margin-top:20px;width:500px">
             <p style="margin:0px;"><b>Invoice No: ${salesInvoice}</b></p>
           </div>
           <p style="margin: 10px 0px 10px 30px;"><b>Paket dipilih</b></p>
-  
+
           ${order}
-  
+
           <div style="display:flex;margin-left:30px;">
             <div style="width:350px;">
               <p style="margin:5px;margin-left: 0px;">Admin Fee</p>
@@ -1704,7 +1696,7 @@ class TransactionController {
             </div>
           </div>
         </div>
-  
+
         <div style="border-top:1px solid #aaa;font-size:0;margin:8px auto;"></div>
         <div style="text-align:center;font-size: small;">
           <b>Email ini dibuat secara otomatis. Mohon tidak mengirim balasan ke email ini.</b>
@@ -1714,22 +1706,21 @@ class TransactionController {
         <p style="font-size: x-small;">* Email ini dikirimkan ke ${
           mailOptions.to
         } karena kamu telah memilih untuk menerima salinan tanda terima elektronik.</p>
-  
+
         ${footerMail}
         `;
 
-        await transporter.sendMail(mailOptions, function (error, info) {
-          if (error) {
-            console.log("GAGAL");
-            console.log(error);
-          } else {
-            console.log(mailOptions.to);
-            console.log("Berhasil");
-          }
-        });
+      await transporter.sendMail(mailOptions, function (error, info) {
+        if (error) {
+          console.log("GAGAL");
+          console.log(error);
+        } else {
+          console.log(mailOptions.to);
+          console.log("Berhasil");
+        }
+      });
 
-        await rememberExtendPackage(transaction.memberId);
-      } else res.status(403).send();
+      await rememberExtendPackage(transaction.memberId);
     } catch (error) {
       if (error.name === "notFound") {
         let data = {

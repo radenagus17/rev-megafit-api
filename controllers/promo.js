@@ -345,74 +345,74 @@ class promo {
 
         let totalPotongan = 0;
 
-        // if (data.forAll) {
-        //   //todo: this is for all product
-        //   let promise = [];
-        //   cart.forEach((el) => {
-        //     promise.push(
-        //       tblOrderList.update(
-        //         {
-        //           promo_1: el.promo_1 ?? data.id,
-        //           promo_2: el.promo_1 ? data.id : null,
-        //         },
-        //         { where: { id: el.id } }
-        //       )
-        //     );
+        if (data.forAll) {
+          //todo: this is for all product
+          let promise = [];
+          cart.forEach((el) => {
+            promise.push(
+              tblOrderList.update(
+                {
+                  promo_1: el.promo_1 ?? data.id,
+                  promo_2: el.promo_1 ? data.id : null,
+                },
+                { where: { id: el.id } }
+              )
+            );
 
-        //     totalPotongan +=
-        //       data.typeVoucher == "diskon"
-        //         ? percentage(el.totalPrice, data.nominal)
-        //         : data.nominal;
-        //   });
-        //   await Promise.all(promise);
-        // } else {
-        //   //todo: this is for some product
-        //   const pairProduct = cart.filter((el) => {
-        //     return data.tblPromoProducts.some((product) => {
-        //       return el.packageMembershipId == product.productId;
-        //     });
-        //   });
+            totalPotongan +=
+              data.typeVoucher == "diskon"
+                ? percentage(el.totalPrice, data.nominal)
+                : data.nominal;
+          });
+          await Promise.all(promise);
+        } else {
+          //todo: this is for some product
+          const pairProduct = cart.filter((el) => {
+            return data.tblPromoProducts.some((product) => {
+              return el.packageMembershipId == product.productId;
+            });
+          });
 
-        //   if (!pairProduct.length) throw { name: "notFound" };
-        //   let updateOrder = [];
-        //   pairProduct.forEach((el) => {
-        //     updateOrder.push(
-        //       tblOrderList.update(
-        //         {
-        //           promo_1: el.promo_1 ?? data.id,
-        //           promo_2: el.promo_1 ? data.id : null,
-        //         },
-        //         { where: { id: el.id } }
-        //       )
-        //     );
+          if (!pairProduct.length) throw { name: "notFound" };
+          let updateOrder = [];
+          pairProduct.forEach((el) => {
+            updateOrder.push(
+              tblOrderList.update(
+                {
+                  promo_1: el.promo_1 ?? data.id,
+                  promo_2: el.promo_1 ? data.id : null,
+                },
+                { where: { id: el.id } }
+              )
+            );
 
-        //     totalPotongan +=
-        //       data.typeVoucher == "diskon"
-        //         ? percentage(el.totalPrice, data.nominal)
-        //         : data.nominal;
-        //   });
-        //   await Promise.all(updateOrder);
-        // }
-        // await tblHistoryPromo.create({
-        //   memberId: dataUser.memberId,
-        //   idVoucher: data.id,
-        //   claimDate: createDateAsUTC(new Date()),
-        //   keterangan: data.keterangan || data.name,
-        //   discount:
-        //     data.discountMax && totalPotongan >= data.discountMax
-        //       ? data.discountMax
-        //       : totalPotongan,
-        //   transaction: lastTransaction.transactionId,
-        // });
+            totalPotongan +=
+              data.typeVoucher == "diskon"
+                ? percentage(el.totalPrice, data.nominal)
+                : data.nominal;
+          });
+          await Promise.all(updateOrder);
+        }
+        await tblHistoryPromo.create({
+          memberId: dataUser.memberId,
+          idVoucher: data.id,
+          claimDate: createDateAsUTC(new Date()),
+          keterangan: data.keterangan || data.name,
+          discount:
+            data.discountMax && totalPotongan >= data.discountMax
+              ? data.discountMax
+              : totalPotongan,
+          transaction: lastTransaction.transactionId,
+        });
 
-        // if (!data.isUnlimited && data.usageQuota) {
-        //   await tblPromo.update(
-        //     {
-        //       usageQuota: data.usageQuota - 1,
-        //     },
-        //     { where: { id: data.id } }
-        //   );
-        // }
+        if (!data.isUnlimited && data.usageQuota) {
+          await tblPromo.update(
+            {
+              usageQuota: data.usageQuota - 1,
+            },
+            { where: { id: data.id } }
+          );
+        }
 
         res.status(200).json({
           Message: "Success Add Promo !",
@@ -549,7 +549,7 @@ class promo {
       await tblHistoryPromo.destroy({ where: { id: data.id } });
       res.status(200).json({
         success: true,
-        message: `resource deleted successfully for voucher ${data.tblPromo.code}`,
+        message: `resource canceled successfully for historyId ${id}`,
       });
     } catch (error) {
       next(error);

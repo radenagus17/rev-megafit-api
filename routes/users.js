@@ -23,7 +23,54 @@
  *          nickname:
  *            type: string
  *            description: the auto generated id of the user
+ *          avatar:
+ *            type: string
+ *            description: the auto generated id of the user
+ *          notKtp:
+ *            type: string
+ *            description: the auto generated id of the user
+ *          dateOfBirth:
+ *            type: string
+ *            format: date
+ *            description: the auto generated id of the user
+ *          email:
+ *            type: string
+ *            description: the auto generated id of the user
+ *          phone:
+ *            type: string
+ *            description: the auto generated id of the user
+ *          gender:
+ *            type: string
+ *            description: the auto generated id of the user
+ *          igAccount:
+ *            type: string
+ *            description: the auto generated id of the user
+ *          roleId:
+ *            type: integer
+ *            description: the auto generated id of the user
+ *          haveWhatsapp:
+ *            type: boolean
+ *            description: the auto generated id of the user
+ *          flagActive:
+ *            type: boolean
+ *            description: the auto generated id of the user
+ *          agreePromo:
+ *            type: boolean
+ *            description: the auto generated id of the user
+ *          isDataConflict:
+ *            type: boolean
+ *            description: the auto generated id of the user
+ *          firstLogin:
+ *            type: boolean
+ *            description: the auto generated id of the user
+ *          OTP:
+ *            type: integer
+ *            description: the auto generated id of the user
  *          createdAt:
+ *            type: string
+ *            format: date
+ *            description: the auto generated id of the user
+ *          updatedAt:
  *            type: string
  *            format: date
  *            description: the auto generated id of the user
@@ -93,18 +140,19 @@
  *         content:
  *           application/json:
  *             schema:
- *               type: array
- *               items:
- *                 type: object
- *                 properties:
- *                   message:
- *                    type: string
- *                    example: success
- *                   totalRecord:
- *                    type: integer
- *                    example: 5
- *                   data:
- *                    type: object
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *                   example: success
+ *                 totalRecord:
+ *                   type: integer
+ *                   example: 5
+ *                 data:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *
  *
  * /users/signin:
  *    post:
